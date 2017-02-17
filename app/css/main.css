@@ -669,7 +669,7 @@ tr:nth-child(odd) {
     margin-top: 10px;
     border-radius: 5px;
     padding: 20px;
-    overflow: hidden;
+    overflow: auto;
 }
 .tooltip-box {
     overflow: visible;
@@ -1060,4 +1060,20 @@ ul#todoItems-list.ui-sortable {
 .dropzone:hover {
     border: 1px solid #29AEB9;
     border-radius: 5px;
+}
+
+/* doodle canvas */
+canvas.doodle {
+    border: 1px solid #dcdddc;
+    border-radius: 5px;
+    display: block;
+    margin: 10px 0 10px 0;
+}
+
+.clickable:hover {
+    cursor: pointer;
+}
+
+.bodyToggle {
+    display: none;
 }

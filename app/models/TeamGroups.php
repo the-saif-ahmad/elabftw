@@ -67,6 +67,34 @@ class TeamGroups
     }
 
     /**
+     * When we need to build a select menu with visibility + team groups
+     *
+     * @return array
+     */
+    public function readFull()
+    {
+        $idArr = array();
+        $nameArr = array();
+
+        $groups = $this->readAll();
+
+        foreach ($groups as $group) {
+            $idArr[] = $group['id'];
+            $nameArr[] = $group['name'];
+        }
+        $tgArr = array_combine($idArr, $nameArr);
+
+        $visibilityArr = array(
+            'organization' => 'Everyone with an account',
+            'team' => 'Only the team',
+            'user' => 'Only me'
+        );
+
+        return $visibilityArr + $tgArr;
+    }
+
+
+    /**
      * Get the name of a group
      *
      * @param int $id
@@ -184,5 +212,4 @@ class TeamGroups
 
         return in_array($userid, $authUsersArr);
     }
-
 }

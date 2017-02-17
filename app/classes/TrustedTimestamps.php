@@ -25,8 +25,8 @@ use Defuse\Crypto\Key as Key;
  */
 class TrustedTimestamps extends Entity
 {
-    /** array with config */
-    private $configArr;
+    /** instance of Config*/
+    private $Config;
 
     /** array with config of the team */
     private $teamConfigArr;
@@ -34,8 +34,8 @@ class TrustedTimestamps extends Entity
     /** our database connection */
     protected $pdo;
 
-    /** the id of the experiment */
-    public $id;
+    /** instance of Entity */
+    public $Entity;
 
     /** ELAB_ROOT . uploads/ . $pdfFileName */
     private $pdfPath;
@@ -67,17 +67,19 @@ class TrustedTimestamps extends Entity
      *
      * @param Config $config
      * @param Teams $teams
-     * @param int $id The id of the experiment
+     * @param Entity $entity
      */
-    public function __construct(Config $config, Teams $teams, $id)
+    public function __construct(Config $config, Teams $teams, Entity $entity)
     {
-        $this->configArr = $config->read();
+        $this->Config = $config;
+        $this->Entity = $entity;
         $this->teamConfigArr = $teams->read();
 
         $this->pdo = Db::getConnection();
 
         // will be used in sqlUpdate()
-        $this->setId($id);
+        $this->setId($this->Entity->id);
+        $this->canOrExplode('write');
 
         $this->generatePdf();
 
@@ -104,7 +106,7 @@ class TrustedTimestamps extends Entity
     private function generatePdf()
     {
         try {
-            $pdf = new MakePdf($this->id, 'experiments', true);
+            $pdf = new MakePdf($this->Entity, true);
             $this->pdfPath = $pdf->filePath;
             $this->pdfLongName = $pdf->fileName;
         } catch (Exception $e) {
@@ -125,8 +127,8 @@ class TrustedTimestamps extends Entity
         // otherwise use the general config if we can
         if (strlen($this->teamConfigArr['stampprovider']) > 2) {
             $config = $this->teamConfigArr;
-        } elseif ($this->configArr['stampshare']) {
-            $config = $this->configArr;
+        } elseif ($this->Config->configArr['stampshare']) {
+            $config = $this->Config->configArr;
         } else {
             throw new Exception(_('Please configure Timestamping in the admin panel.'));
         }
@@ -324,8 +326,8 @@ class TrustedTimestamps extends Entity
             curl_setopt($ch, CURLOPT_USERPWD, $this->stampParams['stamplogin'] . ":" . $this->stampParams['stamppassword']);
         }
         // add proxy if there is one
-        if (strlen($this->configArr['proxy']) > 0) {
-            curl_setopt($ch, CURLOPT_PROXY, $this->configArr['proxy']);
+        if (strlen($this->Config->configArr['proxy']) > 0) {
+            curl_setopt($ch, CURLOPT_PROXY, $this->Config->configArr['proxy']);
         }
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 10);
@@ -383,8 +385,8 @@ class TrustedTimestamps extends Entity
         $req->bindParam(':real_name', $real_name);
         $req->bindParam(':long_name', $long_name);
         $req->bindValue(':comment', "Timestamp token");
-        $req->bindParam(':item_id', $this->id);
-        $req->bindParam(':userid', $_SESSION['userid']);
+        $req->bindParam(':item_id', $this->Entity->id);
+        $req->bindParam(':userid', $this->Entity->Users->userid);
         $req->bindValue(':type', 'timestamp-token');
         $req->bindParam(':hash', $this->getHash($this->responsefilePath));
         $req->bindParam(':hash_algorithm', $this->hashAlgorithm);
@@ -491,8 +493,8 @@ class TrustedTimestamps extends Entity
         $req->bindParam(':when', $this->responseTime);
         // the date recorded in the db has to match the creation time of the timestamp token
         $req->bindParam(':longname', $this->responsefilePath);
-        $req->bindParam(':userid', $_SESSION['userid']);
-        $req->bindParam(':id', $this->id);
+        $req->bindParam(':userid', $this->Entity->Users->userid);
+        $req->bindParam(':id', $this->Entity->id);
         if (!$req->execute()) {
             throw new Exception('Cannot update SQL!');
         }
@@ -506,7 +508,7 @@ class TrustedTimestamps extends Entity
     {
         $sql = "SELECT elabid FROM experiments WHERE id = :id";
         $req = $this->pdo->prepare($sql);
-        $req->bindParam(':id', $this->id);
+        $req->bindParam(':id', $this->Entity->id);
         if (!$req->execute()) {
             throw new Exception('Cannot get elabid!');
         }
@@ -525,8 +527,8 @@ class TrustedTimestamps extends Entity
         $req->bindParam(':real_name', $this->pdfRealName);
         $req->bindParam(':long_name', $this->pdfLongName);
         $req->bindValue(':comment', "Timestamped PDF");
-        $req->bindParam(':item_id', $this->id);
-        $req->bindParam(':userid', $_SESSION['userid']);
+        $req->bindParam(':item_id', $this->Entity->id);
+        $req->bindParam(':userid', $this->Entity->Users->userid);
         $req->bindValue(':type', 'exp-pdf-timestamp');
         $req->bindParam(':hash', $this->getHash($this->pdfPath));
         $req->bindParam(':hash_algorithm', $this->hashAlgorithm);
@@ -550,6 +552,10 @@ class TrustedTimestamps extends Entity
         $opensslResult = $this->runOpenSSL($cmd);
         $retarray = $opensslResult['retarray'];
         $retcode = $opensslResult['retcode'];
+
+        if ($retcode !== 0) {
+            throw new Exception("Error decoding ASN1 file: " . implode(", ", $retarray));
+        }
 
         // now let's parse this
         $out = "<br><hr>";
@@ -599,7 +605,7 @@ class TrustedTimestamps extends Entity
         $out .= "<br>Timestamp: " . $year . "-" . $month . "-" . $day . " at " . $hour . ":" . $minute . ":" . $second;
 
         $out .= "<br><br>TSA info:";
-        $out .= "<br>TSA: ". $tsa;
+        $out .= "<br>TSA: " . $tsa;
         $out .= "<br>Country: " . $country;
 
         return $out;

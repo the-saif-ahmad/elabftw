@@ -10,8 +10,6 @@
  */
 namespace Elabftw\Elabftw;
 
-use \RecursiveIteratorIterator;
-use \RecursiveDirectoryIterator;
 use Exception;
 
 /**
@@ -46,6 +44,41 @@ class Tools
         return date('Ymd');
     }
 
+
+    /**
+     * For displaying messages using jquery ui highlight/error messages
+     *
+     * @param string $message The message to display
+     * @param string $type Can be 'ok', 'ko' or 'warning', with or without _nocross
+     * @param bool $cross do we display a cross or not?
+     * @return string the HTML of the message
+     */
+    public static function displayMessage($message, $type, $cross = true)
+    {
+        $glyphicon = 'info-sign';
+        $alert = 'success';
+
+        if ($type === 'ko') {
+            $glyphicon = 'exclamation-sign';
+            $alert = 'danger';
+        } elseif ($type === 'warning') {
+            $glyphicon = 'chevron-right';
+            $alert = $type;
+        }
+
+        $crossLink = '';
+
+        if ($cross) {
+            $crossLink = "<a href='#' class='close' data-dismiss='alert'>&times</a>";
+        }
+
+        $begin = "<div class='alert alert-" . $alert .
+            "'><span class='glyphicon glyphicon-" . $glyphicon .
+            "' aria-hidden='true'></span>";
+        $end = "</div>";
+
+        return $begin . $crossLink . ' ' . $message . $end;
+    }
 
     /**
      * Sanitize title with a filter_var and remove the line breaks.
@@ -155,6 +188,28 @@ class Tools
     }
 
     /**
+     * Put firstname lowercase and first letter uppercase
+     *
+     * @param string $firstname
+     * @return string
+     */
+    public static function purifyFirstname($firstname)
+    {
+        return ucwords(strtolower(filter_var($firstname, FILTER_SANITIZE_STRING)));
+    }
+
+    /**
+     * Put lastname in capital letters
+     *
+     * @param string $lastname
+     * @return string
+     */
+    public static function purifyLastname($lastname)
+    {
+        return strtoupper(filter_var($lastname, FILTER_SANITIZE_STRING));
+    }
+
+    /**
      * Get the extension of a file.
      *
      * @param string $filename path of the file
@@ -225,36 +280,6 @@ class Tools
     }
 
     /**
-     * Get the size of a dir
-     *
-     * @param string $directory
-     * @return integer
-     */
-    public static function dirSize($directory)
-    {
-        $size = 0;
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory)) as $file) {
-            $size += $file->getSize();
-        }
-        return $size;
-    }
-
-    /**
-     * Get the number of files in a dir
-     *
-     * @param string $directory
-     * @return int number of files in dir
-     */
-    public static function dirNum($directory)
-    {
-        $num = 0;
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory)) as $file) {
-            $num++;
-        }
-        return $num;
-    }
-
-    /**
      * Display a generic error message
      *
      * @param bool $permission show the out of reach message for permission message
@@ -309,7 +334,7 @@ class Tools
         $ftwArr[] = 'Full Time Workers';
         $ftwArr[] = 'Fabricated To Win';
         $ftwArr[] = 'Furiously Taunted Wookies';
-        $ftwArr[] = 'Flash The Watch';
+        $ftwArr[] = 'Find The Wally';
 
         shuffle($ftwArr);
 
@@ -364,5 +389,41 @@ class Tools
         );
 
         return $langs;
+    }
+
+    /**
+     * A better print_r()
+     *
+     * @param array $arr
+     * @return string
+     */
+    public static function printArr($arr)
+    {
+        $html = '<ul>';
+        if (is_array($arr)) {
+            foreach ($arr as $key => $val) {
+                if (is_array($val)) {
+                    $html .= '<li><span style="color:red;">' . $key . '</span><b> => </b><span style="color:blue;">' . self::printArr($val) . '</span></li>';
+                } else {
+                    $html .= '<li><span style="color:red;">' . $key . '</span><b> => </b><span style="color:blue;">' . $val . '</span></li>';
+                }
+            }
+        }
+        $html .= '</ul>';
+        return $html;
+    }
+
+    /**
+     * Used when generating options for select menus
+     *
+     * @param string $getParam
+     * @param string $value
+     * @return string|null
+     */
+    public static function addSelected($getParam, $value)
+    {
+        if ($getParam === $value) {
+            return " selected";
+        }
     }
 }

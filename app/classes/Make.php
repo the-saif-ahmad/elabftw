@@ -10,7 +10,7 @@
  */
 namespace Elabftw\Elabftw;
 
-use \Exception;
+use Exception;
 
 /**
  * Mother class of MakeCsv, MakePdf and MakeZip
@@ -72,37 +72,5 @@ abstract class Make
             throw new Exception('Bad type!');
         }
         return $type;
-    }
-
-    /**
-     * Verify we can see the id
-     *
-     * @param int $id
-     * @return bool|null True if user has reading rights
-     */
-    protected function checkVisibility($id)
-    {
-        $sql = "SELECT userid FROM " . $this->type . " WHERE id = :id";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':id', $id, \PDO::PARAM_INT);
-        $req->execute();
-        $theUser = $req->fetchColumn();
-
-        if ($this->type === 'experiments') {
-            $comparator = $_SESSION['userid'];
-        } else {
-            // get the team of the userid of the item
-            $sql = "SELECT team FROM users WHERE userid = :userid";
-            $req = $this->pdo->prepare($sql);
-            $req->bindParam(':userid', $theUser, \PDO::PARAM_INT);
-            $req->execute();
-            $theUser = $req->fetchColumn();
-            // we will compare the teams for DB items
-            $comparator = $_SESSION['team_id'];
-        }
-
-        if ($theUser != $comparator) {
-            throw new Exception(Tools::error(true));
-        }
     }
 }

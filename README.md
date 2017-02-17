@@ -10,6 +10,8 @@
 [![License](https://img.shields.io/badge/license-AGPL-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.en.html)
 [![Release](https://img.shields.io/github/release/elabftw/elabftw.svg)](https://github.com/elabftw/elabftw/releases/latest)
 
+[![SensioLabsInsight](https://insight.sensiolabs.com/projects/7f8ef03c-64b1-44c2-9914-b66059af755c/small.png)](https://insight.sensiolabs.com/projects/7f8ef03c-64b1-44c2-9914-b66059af755c)
+
 # Description
 
 - Tired of that shared excel file for your antibodies or plasmids ?
@@ -27,6 +29,9 @@ Click the image below to see it in bigger size:
 [![Demo gif](https://i.imgur.com/SRHsIEM.gif)](https://gfycat.com/ImpressivePoliteAsiaticmouflon)
 
 **eLabFTW** is designed to be installed on a server, and people from the team would just log into it from their browser.
+
+![server client](https://i.imgur.com/BcfFgQS.gif)
+
 Don't have a server ? That's okay, you can use an old computer with 1 Go of RAM and an old CPU, it's more than enough. Just install a recent GNU/Linux distribution on it and plug it to the intranet.
 
 # Installation

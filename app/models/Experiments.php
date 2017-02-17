@@ -24,9 +24,6 @@ class Experiments extends Entity
     /** our team */
     public $team;
 
-    /** current user */
-    public $userid;
-
     /** instance of Links */
     public $Links;
 
@@ -36,20 +33,15 @@ class Experiments extends Entity
     /**
      * Constructor
      *
-     * @param int $team
-     * @param int $userid
+     * @param Users $users
      * @param int|null $id
      */
-    public function __construct($team, $userid, $id = null)
+    public function __construct(Users $users, $id = null)
     {
         $this->pdo = Db::getConnection();
 
-        $this->team = $team;
-        $this->userid = $userid;
-
-        $Users = new Users();
-        $user = $Users->read($this->userid);
-        $this->team = $user['team'];
+        $this->type = 'experiments';
+        $this->Users = $users;
 
         if (!is_null($id)) {
             $this->setId($id);
@@ -68,112 +60,41 @@ class Experiments extends Entity
      */
     public function create($tpl = null)
     {
-        $templates = new Templates($this->team);
+        $Templates = new Templates($this->Users);
 
         // do we want template ?
-        if (Tools::checkId($tpl)) {
-
-            $templatesArr = $templates->read($tpl);
+        if (!is_null($tpl)) {
+            $Templates->setId($tpl);
+            $templatesArr = $Templates->read();
             $title = $templatesArr['name'];
 
         } else {
 
-            $templatesArr = $templates->readCommon();
+            $templatesArr = $Templates->readCommon();
             $title = _('Untitled');
         }
 
+        $visibility = 'team';
+        if (!is_null($this->Users->userData['default_vis'])) {
+            $visibility = $this->Users->userData['default_vis'];
+        }
+
         // SQL for create experiments
-        $sql = "INSERT INTO experiments(team, title, date, body, status, elabid, visibility, userid) VALUES(:team, :title, :date, :body, :status, :elabid, :visibility, :userid)";
+        $sql = "INSERT INTO experiments(team, title, date, body, status, elabid, visibility, userid)
+            VALUES(:team, :title, :date, :body, :status, :elabid, :visibility, :userid)";
         $req = $this->pdo->prepare($sql);
         $req->execute(array(
-            'team' => $this->team,
+            'team' => $this->Users->userData['team'],
             'title' => $title,
             'date' => Tools::kdate(),
             'body' => $templatesArr['body'],
             'status' => $this->getStatus(),
             'elabid' => $this->generateElabid(),
-            'visibility' => 'team',
-            'userid' => $this->userid
+            'visibility' => $visibility,
+            'userid' => $this->Users->userid
         ));
 
         return $this->pdo->lastInsertId();
-    }
-
-    /**
-     * Read an experiment
-     *
-     * @throws Exception if empty results
-     * @return array
-     */
-    public function read()
-    {
-        $sql = "SELECT DISTINCT experiments.*, status.color, status.name, uploads.*
-            FROM experiments
-            LEFT JOIN status ON experiments.status = status.id
-            LEFT JOIN experiments_tags ON (experiments_tags.item_id = experiments.id)
-            LEFT JOIN (SELECT uploads.item_id AS attachment, uploads.type FROM uploads) AS uploads ON (uploads.attachment = experiments.id AND uploads.type = 'experiments')
-            WHERE experiments.id = :id ";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':id', $this->id, PDO::PARAM_INT);
-        $req->execute();
-
-        if ($req->rowCount() === 0) {
-            throw new Exception('Nothing to show with this id.');
-        }
-
-        return $req->fetch();
-    }
-
-    /**
-     * Read all experiments for current user
-     *
-            *LEFT JOIN (SELECT experiments_comments.exp_id FROM experiments_comments) AS recentComment ON (1=1)
-     * @return array
-     */
-    public function readAllFromUser()
-    {
-        $sql = "SELECT DISTINCT experiments.*, status.color, status.name, uploads.*, experiments_comments.datetime
-            FROM experiments
-            LEFT JOIN status ON (status.team = experiments.team)
-            LEFT JOIN experiments_tags ON (experiments_tags.item_id = experiments.id)
-            LEFT JOIN (SELECT uploads.item_id AS attachment, uploads.type FROM uploads) AS uploads ON (uploads.attachment = experiments.id AND uploads.type = 'experiments')
-            LEFT JOIN experiments_comments ON (experiments_comments.exp_id = experiments.id)
-            WHERE experiments.userid = :userid
-            AND experiments.status = status.id
-            " . $this->categoryFilter . "
-            " . $this->tagFilter . "
-            " . $this->queryFilter . "
-            ORDER BY " . $this->order . " " . $this->sort;
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':userid', $this->userid, PDO::PARAM_INT);
-        $req->execute();
-
-        return $req->fetchAll();
-    }
-
-    /**
-     * Read all experiments from the team
-     *
-     * @return array
-     */
-    public function readAllFromTeam()
-    {
-        $sql = "SELECT DISTINCT experiments.*, status.color, status.name, uploads.*, experiments_comments.datetime
-            FROM experiments
-            LEFT JOIN status ON (status.team = experiments.team)
-            LEFT JOIN experiments_tags ON (experiments_tags.item_id = experiments.id)
-            LEFT JOIN (SELECT uploads.item_id AS attachment, uploads.type FROM uploads) AS uploads ON (uploads.attachment = experiments.id AND uploads.type = 'experiments')
-            LEFT JOIN experiments_comments ON (experiments_comments.exp_id = experiments.id)
-            WHERE experiments.team = " . $this->team . "
-            AND experiments.status = status.id
-            " . $this->categoryFilter . "
-            " . $this->tagFilter . "
-            " . $this->queryFilter . "
-            ORDER BY " . $this->order . " " . $this->sort;
-        $req = $this->pdo->prepare($sql);
-        $req->execute();
-
-        return $req->fetchAll();
     }
 
     /**
@@ -194,6 +115,7 @@ class Experiments extends Entity
         $req->execute();
         while ($data = $req->fetch()) {
             $this->setId($data['item_id']);
+            $this->canOrExplode('read');
             $itemsArr[] = $this->read();
         }
 
@@ -210,10 +132,6 @@ class Experiments extends Entity
      */
     public function update($title, $date, $body)
     {
-        if (!$this->isOwnedByUser($this->userid, 'experiments', $this->id)) {
-            throw new Exception(Tools::error(true));
-        }
-
         $title = Tools::checkTitle($title);
         $date = Tools::kdate($date);
         $body = Tools::checkBody($body);
@@ -228,11 +146,11 @@ class Experiments extends Entity
         $req->bindParam(':title', $title);
         $req->bindParam(':date', $date);
         $req->bindParam(':body', $body);
-        $req->bindParam(':userid', $this->userid);
+        $req->bindParam(':userid', $this->Users->userid);
         $req->bindParam(':id', $this->id);
 
         // add a revision
-        $Revisions = new Revisions('experiments', $this->id, $this->userid);
+        $Revisions = new Revisions($this);
 
         return $req->execute() && $Revisions->create($body);
     }
@@ -243,7 +161,7 @@ class Experiments extends Entity
      * @param string $visibility
      * @return bool
      */
-    private function checkVisibility($visibility)
+    public function checkVisibility($visibility)
     {
         $validArr = array(
             'public',
@@ -268,18 +186,10 @@ class Experiments extends Entity
      */
     public function updateVisibility($visibility)
     {
-        if (!$this->isOwnedByUser($this->userid, 'experiments', $this->id)) {
-            throw new Exception(Tools::error(true));
-        }
-
-        if (!$this->checkVisibility($visibility)) {
-            throw new Exception('Bad visibility argument');
-        }
-
         $sql = "UPDATE experiments SET visibility = :visibility WHERE userid = :userid AND id = :id";
         $req = $this->pdo->prepare($sql);
         $req->bindParam(':visibility', $visibility);
-        $req->bindParam(':userid', $this->userid, PDO::PARAM_INT);
+        $req->bindParam(':userid', $this->Users->userid);
         $req->bindParam(':id', $this->id, PDO::PARAM_INT);
 
         return $req->execute();
@@ -293,14 +203,10 @@ class Experiments extends Entity
      */
     public function updateStatus($status)
     {
-        if (!$this->isOwnedByUser($this->userid, 'experiments', $this->id)) {
-            throw new Exception(Tools::error(true));
-        }
-
         $sql = "UPDATE experiments SET status = :status WHERE userid = :userid AND id = :id";
         $req = $this->pdo->prepare($sql);
-        $req->bindParam(':status', $status, PDO::PARAM_INT);
-        $req->bindParam(':userid', $this->userid, PDO::PARAM_INT);
+        $req->bindParam(':status', $status);
+        $req->bindParam(':userid', $this->Users->userid);
         $req->bindParam(':id', $this->id, PDO::PARAM_INT);
 
         return $req->execute();
@@ -319,7 +225,7 @@ class Experiments extends Entity
         // all the others are made not default
         $sql = 'SELECT id FROM status WHERE is_default = true AND team = :team LIMIT 1';
         $req = $this->pdo->prepare($sql);
-        $req->bindParam(':team', $this->team);
+        $req->bindParam(':team', $this->Users->userData['team']);
         $req->execute();
         $status = $req->fetchColumn();
 
@@ -328,7 +234,7 @@ class Experiments extends Entity
         if (!$status) {
             $sql = 'SELECT id FROM status WHERE team = :team LIMIT 1';
             $req = $this->pdo->prepare($sql);
-            $req->bindParam(':team', $this->team);
+            $req->bindParam(':team', $this->Users->userData['team']);
             $req->execute();
             $status = $req->fetchColumn();
         }
@@ -364,17 +270,17 @@ class Experiments extends Entity
             VALUES(:team, :title, :date, :body, :status, :elabid, :visibility, :userid)";
         $req = $this->pdo->prepare($sql);
         $req->execute(array(
-            'team' => $this->team,
+            'team' => $this->Users->userData['team'],
             'title' => $title,
             'date' => Tools::kdate(),
             'body' => $experiment['body'],
             'status' => $this->getStatus(),
             'elabid' => $this->generateElabid(),
             'visibility' => $experiment['visibility'],
-            'userid' => $this->userid));
+            'userid' => $this->Users->userid));
         $newId = $this->pdo->lastInsertId();
 
-        $tags = new Tags('experiments', $this->id);
+        $tags = new Tags($this);
         $tags->copyTags($newId);
 
         $this->Links->duplicate($this->id, $newId);
@@ -389,20 +295,16 @@ class Experiments extends Entity
      */
     public function destroy()
     {
-        if (!$this->isOwnedByUser($this->userid, 'experiments', $this->id)) {
-            throw new Exception(Tools::error(true));
-        }
-
         // delete the experiment
         $sql = "DELETE FROM experiments WHERE id = :id";
         $req = $this->pdo->prepare($sql);
         $req->bindParam(':id', $this->id);
         $req->execute();
 
-        $tags = new Tags('experiments', $this->id);
+        $tags = new Tags($this);
         $tags->destroyAll();
 
-        $uploads = new Uploads('experiments', $this->id);
+        $uploads = new Uploads($this);
         $uploads->destroyAll();
 
         $this->Links->destroyAll();
@@ -420,38 +322,24 @@ class Experiments extends Entity
      */
     public function toggleLock()
     {
-        // Is the user in a group with can_lock set to 1 ?
-        // 1. get what is the group of the user
-        $Users = new Users();
-        $userArr = $Users->read($this->userid);
-
-        // 2. check if this group has locking rights
-        $sql = "SELECT can_lock FROM groups WHERE group_id = :usergroup";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':usergroup', $userArr['usergroup']);
-        $req->execute();
-        $can_lock = (int) $req->fetchColumn(); // can be 0 or 1
-
-        // We don't have can_lock, but maybe it's our XP, so we can lock it
-        if ($can_lock === 0 && !$this->isOwnedByUser($this->userid, 'experiments', $this->id)) {
-            throw new Exception(_("You don't have the rights to lock/unlock this."));
-        }
-
-        $expArr = $this->read();
-        $locked = (int) $expArr['locked'];
+        $locked = (int) $this->entityData['locked'];
 
         // if we try to unlock something we didn't lock
-        if ($locked === 1 && ($expArr['lockedby'] != $this->userid)) {
+        if ($locked === 1 && ($this->entityData['lockedby'] != $this->Users->userid)) {
             // Get the first name of the locker to show in error message
             $sql = "SELECT firstname FROM users WHERE userid = :userid";
             $req = $this->pdo->prepare($sql);
-            $req->bindParam(':userid', $expArr['lockedby']);
+            $req->bindParam(':userid', $this->entityData['lockedby']);
             $req->execute();
-            throw new Exception(_('This experiment was locked by') . ' ' . $req->fetchColumn() . '. ' . _("You don't have the rights to lock/unlock this."));
+            throw new Exception(
+                _('This experiment was locked by') .
+                ' ' . $req->fetchColumn() . '. ' .
+                _("You don't have the rights to lock/unlock this.")
+            );
         }
 
         // check if the experiment is timestamped. Disallow unlock in this case.
-        if ($locked === 1 && $expArr['timestamped']) {
+        if ($locked === 1 && $this->entityData['timestamped']) {
             throw new Exception(_('You cannot unlock or edit in any way a timestamped experiment.'));
         }
 
@@ -465,7 +353,7 @@ class Experiments extends Entity
             SET locked = :locked, lockedby = :lockedby, lockedwhen = CURRENT_TIMESTAMP WHERE id = :id";
         $req = $this->pdo->prepare($sql);
         $req->bindParam(':locked', $locked);
-        $req->bindParam(':lockedby', $this->userid);
+        $req->bindParam(':lockedby', $this->Users->userid);
         $req->bindParam(':id', $this->id);
 
         return $req->execute();

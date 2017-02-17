@@ -207,6 +207,7 @@ try {
 
             // DEMO BLOCK
             $password = 'demodemo';
+            // END DEMO BLOCK
 
             // UPDATE PASSWORD
             $Users->updatePassword($password);

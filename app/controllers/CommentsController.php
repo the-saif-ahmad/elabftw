@@ -18,7 +18,8 @@ use Exception;
  */
 try {
     require_once '../../app/init.inc.php';
-    $Comments = new Comments(new Experiments($_SESSION['team_id'], $_SESSION['userid']), $_POST['id']);
+
+    $Comments = new Comments(new Experiments($Users));
 
     // CREATE
     if (isset($_POST['commentsCreate'])) {
@@ -37,8 +38,8 @@ try {
     }
 
     // UPDATE
-    if (isset($_POST['commentsUpdateComment'])) {
-        if ($Comments->update($_POST['commentsUpdateComment'])) {
+    if (isset($_POST['commentsUpdate'])) {
+        if ($Comments->update($_POST['commentsUpdate'], $_POST['id'])) {
             echo json_encode(array(
                 'res' => true,
                 'msg' => _('Saved')
@@ -52,8 +53,8 @@ try {
     }
 
     // DESTROY
-    if (isset($_POST['commentsDestroy'])) {
-        if ($Comments->destroy()) {
+    if (isset($_POST['destroy'])) {
+        if ($Comments->destroy($_POST['id'])) {
             echo json_encode(array(
                 'res' => true,
                 'msg' => _('Comment successfully deleted')

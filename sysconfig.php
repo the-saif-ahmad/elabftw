@@ -17,19 +17,19 @@ use Exception;
  * Administrate elabftw install
  *
  */
-require_once 'app/init.inc.php';
 
 try {
-    $page_title = _('eLabFTW Configuration');
-    $selected_menu = null;
+    require_once 'app/init.inc.php';
+    $pageTitle = _('eLabFTW Configuration');
+    $selectedMenu = null;
     require_once 'app/head.inc.php';
 
     if ($_SESSION['is_sysadmin'] != 1) {
         throw new Exception(_('This section is out of your reach.'));
     }
 
-    $formKey = new FormKey();
-    $SysconfigView = new SysconfigView(new Update(new Config()), new Logs(), new TeamsView(new Teams()));
+    $Config = new Config();
+    $SysconfigView = new SysconfigView(new Update($Config), new Logs(), new TeamsView(new Teams()));
     $UsersView = new UsersView(new Users());
 
     try {
@@ -37,7 +37,7 @@ try {
         // and not getting the latest version is not a big deal
         $SysconfigView->Update->getUpdatesIni();
     } catch (Exception $e) {
-        display_message('ko_nocross', $e->getMessage());
+        echo Tools::displayMessage($e->getMessage(), 'ko');
     }
 
     // display current and latest version
@@ -54,16 +54,17 @@ try {
         if ($SysconfigView->Update->updateIsAvailable()) {
             $message = $SysconfigView->Update->getReleaseDate() . " - " .
                 _('A new version is available!') . " <a href='https://elabftw.readthedocs.io/en/latest/how-to-update.html'>
-                <button class='button'>Update elabftw</button></a>";
-            display_message('warning', $message);
+                <button class='button'>Update elabftw</button></a>
+                <a href='" . $SysconfigView->Update->getChangelogLink() . "'><button class='button'>Read changelog</button></a>";
+            echo Tools::displayMessage($message, 'warning');
         }
     } else {
         echo "</p>";
     }
 
-    if (get_config('mail_from') === 'notconfigured@example.com') {
+    if ($Config->configArr['mail_from'] === 'notconfigured@example.com') {
         $message = sprintf(_('Please finalize install : %slink to documentation%s.'), "<a href='https://elabftw.readthedocs.io/en/latest/postinstall.html#setting-up-email'>", "</a>");
-        display_message('ko', $message);
+        echo Tools::displayMessage($message, 'ko');
     }
     ?>
 
@@ -111,7 +112,7 @@ try {
             <select id='lang' name="lang" class="clean-form col-3-form">
     <?php
     $langsArr = Tools::getLangsArr();
-    $current_lang = get_config('lang');
+    $current_lang = $Config->configArr['lang'];
 
     foreach ($langsArr as $lang => $text) {
         echo "<option ";
@@ -124,7 +125,7 @@ try {
             </select><br>
 
             <label class="block" for='proxy'><?= _('Address of the Proxy:') ?></label>
-            <input class="clean-form col-3-form" type='text' value='<?= get_config('proxy') ?>' name='proxy' id='proxy' />
+            <input class="clean-form col-3-form" type='text' value='<?= $Config->configArr['proxy'] ?>' name='proxy' id='proxy' />
             <p class='smallgray'><?= _('If you are behind a firewall/proxy, enter the address here. Example : http://proxy.example.com:3128') ?></p>
 
             <div class='submitButtonDiv'>
@@ -153,28 +154,28 @@ try {
             <label for='stampshare'><?php echo _('The teams can use the credentials below to timestamp:'); ?></label>
             <select class="clean-form" name='stampshare' id='stampshare'>
                 <option value='1'
-                    <?= get_config('stampshare') ? " selected='selected'" : "" ?>
+                    <?= $Config->configArr['stampshare'] ? " selected='selected'" : "" ?>
                 ><?= _('Yes') ?></option>
                 <option value='0'
-                    <?= !get_config('stampshare') ? " selected='selected'" : "" ?>
+                    <?= !$Config->configArr['stampshare'] ? " selected='selected'" : "" ?>
                 ><?= _('No'); ?></option>
             </select>
             <p class='smallgray'><?= _('You can control if the teams can use the global timestamping account. If set to <em>no</em> the team admin must add login infos in the admin panel.') ?></p>
             <p>
             <label class="block" for='stampprovider'><?= _('URL for external timestamping service:') ?></label>
-            <input class="clean-form col-3-form" type='url' placeholder='http://zeitstempel.dfn.de/' value='<?= get_config('stampprovider') ?>' name='stampprovider' id='stampprovider' />
+            <input class="clean-form col-3-form" type='url' placeholder='http://zeitstempel.dfn.de/' value='<?= $Config->configArr['stampprovider'] ?>' name='stampprovider' id='stampprovider' />
             <span class='smallgray'><?php printf(_('This should be the URL used for %sRFC 3161%s-compliant timestamping requests.'), "<a href='https://tools.ietf.org/html/rfc3161'>", "</a>"); ?></span>
             </p>
             <p>
             <label class="block" for='stampcert'><?= _('Chain of certificates of the external timestamping service:'); ?></label>
-            <input class="clean-form col-3-form" type='text' placeholder='app/dfn-cert/pki.dfn.pem' value='<?= get_config('stampcert') ?>' name='stampcert' id='stampcert' />
+            <input class="clean-form col-3-form" type='text' placeholder='app/dfn-cert/pki.dfn.pem' value='<?= $Config->configArr['stampcert'] ?>' name='stampcert' id='stampcert' />
             <span class='smallgray'><?php printf(_("This should point to the chain of certificates used by your external timestamping provider to sign the timestamps.%sLocal path relative to eLabFTW installation directory. You should add it in the 'uploads' folder. The file needs to be in %sPEM-encoded (ASCII)%s format!"), "<br>", "<a href='https://en.wikipedia.org/wiki/Privacy-enhanced_Electronic_Mail'>", "</a>"); ?></span>
             </p>
             <label class="block" for='stamplogin'><?= _('Login for external timestamping service:') ?></label>
-            <input class="clean-form col-3-form" autocomplete='off' type='text' value='<?= get_config('stamplogin'); ?>' name='stamplogin' id='stamplogin' /><br>
+            <input class="clean-form col-3-form" autocomplete='off' type='text' value='<?= $Config->configArr['stamplogin']; ?>' name='stamplogin' id='stamplogin' /><br>
             <label class="block" for='stamppass'><?= _('Password for external timestamping service:') ?></label>
     <?php
-    if (strlen(get_config('stamppass')) > 1) {
+    if (strlen($Config->configArr['stamppass']) > 1) {
         echo "<p>A password is already set. ";
         echo "<a href='app/controllers/SysconfigController.php?clearStamppass=1'>Clear it</a> or change it below:</p>";
     }
@@ -197,18 +198,18 @@ try {
                 <label for='admin_validate'><?= _('Users need validation by admin after registration:') ?></label>
                 <select class="clean-form" name='admin_validate' id='admin_validate'>
                     <option value='1'
-                        <?= get_config('admin_validate') ? " selected='selected'" : "" ?>
+                        <?= $Config->configArr['admin_validate'] ? " selected='selected'" : "" ?>
                     ><?= _('Yes'); ?></option>
                     <option value='0'
-                        <?= !get_config('admin_validate') ? " selected='selected'" : "" ?>
+                        <?= !$Config->configArr['admin_validate'] ? " selected='selected'" : "" ?>
                     ><?= _('No'); ?></option>
                 </select>
                 <p class='smallgray'><?= _('Set to yes for added security.') ?></p>
                 <label class="block" for='login_tries'><?= _('Number of allowed login attempts:') ?></label>
-                <input class="clean-form col-3-form" type='number' value='<?= get_config('login_tries') ?>' name='login_tries' id='login_tries' />
+                <input class="clean-form col-3-form" type='number' value='<?= $Config->configArr['login_tries'] ?>' name='login_tries' id='login_tries' />
                 <p class='smallgray'><?= _('3 might be too few. See for yourself :)') ?></p>
                 <label class="block" for='ban_time'><?= _('Time of the ban after failed login attempts (in minutes):') ?></label>
-                <input class="clean-form col-3-form" type='number' value='<?= get_config('ban_time') ?>' name='ban_time' id='ban_time' />
+                <input class="clean-form col-3-form" type='number' value='<?= $Config->configArr['ban_time'] ?>' name='ban_time' id='ban_time' />
                 <p class='smallgray'>
                     <?= _('To identify an user we use an md5 of user agent + IP. Because doing it only based on IP address would surely cause problems.'); ?>
                 </p>
@@ -225,7 +226,7 @@ try {
             <h3><?= _('E-mail Settings') ?></h3>
             <hr>
     <?php
-    $mail_method = get_config('mail_method');
+    $mail_method = $Config->configArr['mail_method'];
     switch ($mail_method) {
         case 'sendmail':
             $disable_sendmail = false;
@@ -272,22 +273,22 @@ try {
             <div id='general_mail_config'>
                 <p>
                 <label class="block" for='mail_from'><?= _('Sender address:') ?></label>
-                <input class="clean-form col-3-form" type='text' value='<?= get_config('mail_from') ?>' name='mail_from' id='mail_from' />
+                <input class="clean-form col-3-form" type='text' value='<?= $Config->configArr['mail_from'] ?>' name='mail_from' id='mail_from' />
                 </p>
             </div>
             <div id='sendmail_config'>
                 <p>
                 <label class="block" for='sendmail_path'><?= _('Path to sendmail:') ?></label>
-                <input class="clean-form col-3-form" type='text' placeholder='/usr/bin/sendmail' value='<?= get_config('sendmail_path') ?>' name='sendmail_path' id='sendmail_path' />
+                <input class="clean-form col-3-form" type='text' placeholder='/usr/bin/sendmail' value='<?= $Config->configArr['sendmail_path'] ?>' name='sendmail_path' id='sendmail_path' />
                 </p>
             </div>
             <div id='smtp_config'>
                 <p>
                 <label class="block" for='smtp_address'><?= _('Address of the SMTP server:') ?></label>
-                <input class="clean-form col-3-form" type='text' value='<?= get_config('smtp_address') ?>' name='smtp_address' id='smtp_address' />
+                <input class="clean-form col-3-form" type='text' value='<?= $Config->configArr['smtp_address'] ?>' name='smtp_address' id='smtp_address' />
                 <span class='smallgray'>mail.smtp2go.com</span>
                 <label class="block" for='smtp_encryption'><?= _('SMTP encryption:') ?></label>
-                <?php $smtp_encryption = get_config('smtp_encryption') ?>
+                <?php $smtp_encryption = $Config->configArr['smtp_encryption'] ?>
                 <select class="clean-form col-3-form" name='smtp_encryption'>
                 <option value='none'
                 <?= $smtp_encryption === 'none' ? ' selected>' : '>' ?>
@@ -301,21 +302,20 @@ try {
                 </select>
                 <span class='smallgray'><?= _('Probably TLS') ?></span>
                 <label class="block" for='smtp_port'><?= _('SMTP Port:') ?></label>
-                <input class="clean-form col-3-form" type='text' value='<?= get_config('smtp_port') ?>' name='smtp_port' id='smtp_port' />
+                <input class="clean-form col-3-form" type='text' value='<?= $Config->configArr['smtp_port'] ?>' name='smtp_port' id='smtp_port' />
                 <span class='smallgray'><?= _('Default is 587.') ?></span>
                 <label class="block" for='smtp_username'><?= _('SMTP username:') ?></label>
-                <input class="clean-form col-3-form" type='text' value='<?= get_config('smtp_username') ?>' name='smtp_username' id='smtp_username' />
+                <input class="clean-form col-3-form" type='text' value='<?= $Config->configArr['smtp_username'] ?>' name='smtp_username' id='smtp_username' />
                 <label class="block" for='smtp_password'><?= _('SMTP password') ?></label>
                 <?php
-if (strlen(get_config('smtp_password')) === 0) {
-                echo "<input class='clean-form col-3-form' type='password' name='smtp_password' id='smtp_password' />";
-} else {
-    echo _('A password is set.');
-    echo "<span class='button' id='editSmtpPassword'>" . _('Edit') . "</span>";
-    echo "<input class='clean-form col-3-form' type='password' name='smtp_password' style='display:none' id='hidden_smtp_password' />";
-
-}
-?>
+    if (strlen($Config->configArr['smtp_password']) === 0) {
+        echo "<input class='clean-form col-3-form' type='password' name='smtp_password' id='smtp_password' />";
+    } else {
+        echo _('A password is set.');
+        echo "<span class='button' id='editSmtpPassword'>" . _('Edit') . "</span>";
+        echo "<input class='clean-form col-3-form' type='password' name='smtp_password' style='display:none' id='hidden_smtp_password' />";
+    }
+    ?>
                 </p>
                 </div>
                 <div class='submitButtonDiv'>
@@ -337,7 +337,6 @@ if (strlen(get_config('smtp_password')) === 0) {
     <script>
     $(document).ready(function() {
         $('#editSmtpPassword').click(function() {
-            var newInput = "<input class='clean-form col-3-form' type='password' name='smtp_password' id='smtp_password' />";
             $('#hidden_smtp_password').toggle();
         });
         // we need to add this otherwise the button will stay disabled with the browser's cache (Firefox)
@@ -377,7 +376,7 @@ if (strlen(get_config('smtp_password')) === 0) {
 } catch (Exception $e) {
     $Logs = new Logs();
     $Logs->create('Error', $_SESSION['userid'], $e->getMessage());
-    display_message('ko', $e->getMessage());
+    echo Tools::displayMessage($e->getMessage(), 'ko');
 } finally {
     require_once 'app/footer.inc.php';
 }

@@ -16,35 +16,34 @@ use Exception;
  * Administration of a team
  *
  */
-require_once 'app/init.inc.php';
-$page_title = _('Admin panel');
-$selected_menu = null;
-require_once 'app/head.inc.php';
-
 try {
+    require_once 'app/init.inc.php';
+    $pageTitle = _('Admin panel');
+    $selectedMenu = null;
+    require_once 'app/head.inc.php';
+
     if (!$_SESSION['is_admin']) {
         throw new Exception(Tools::error(true));
     }
 
     $formKey = new FormKey();
+    $Config = new Config();
+    $Users = new Users($_SESSION['userid'], $Config);
 
-    $StatusView = new StatusView(new Status($_SESSION['team_id']));
-    $ItemsTypesView = new ItemsTypesView(new ItemsTypes($_SESSION['team_id']));
+    $StatusView = new StatusView(new Status($Users));
+    $ItemsTypesView = new ItemsTypesView(new ItemsTypes($Users));
     $TeamGroupsView = new TeamGroupsView(new TeamGroups($_SESSION['team_id']));
     $Auth = new Auth();
-    $Users = new Users();
     $usersArr = $Users->readAllFromTeam($_SESSION['team_id']);
     $UsersView = new UsersView($Users);
-
-    $templates = new Templates($_SESSION['team_id']);
-    $Config = new Config();
+    $Templates = new Templates($Users);
     $Teams = new Teams($_SESSION['team_id']);
 
     // VALIDATE USERS BLOCK
     $unvalidatedUsersArr = $Users->readAllFromTeam($_SESSION['team_id'], 0);
 
     // only show the frame if there is some users to validate and there is an email config
-    if (count($unvalidatedUsersArr) != 0 && $Config->read('mail_from') != 'notconfigured@example.com') {
+    if (count($unvalidatedUsersArr) != 0 && $Config->configArr['mail_from'] != 'notconfigured@example.com') {
         $message = _('There are users waiting for validation of their account:');
         $message .= "<form method='post' action='app/controllers/UsersController.php'>";
         $message .= "<input type='hidden' name='usersValidate' value='true' />";
@@ -58,7 +57,7 @@ try {
         }
         $message .= "</ul><div class='submitButtonDiv'>
         <button class='button' type='submit'>". _('Validate') . "</button></div>";
-        display_message('ko', $message);
+        echo Tools::displayMessage($message, 'ko');
         echo "</form>";
     }
     // END VALIDATE USERS BLOCK
@@ -274,7 +273,7 @@ try {
             <p><?= _('This is the default text when someone creates an experiment.') ?></p>
             <textarea style='height:400px' class='mceditable' id='commonTplTemplate' />
         <?php
-            $templatesArr = $templates->readCommon();
+            $templatesArr = $Templates->readCommon();
             echo $templatesArr['body']
         ?>
             </textarea>
@@ -297,8 +296,8 @@ try {
             <select class="clean-form col-3-form" id='item_selector' onchange='goNext(this.value)'><option value=''>--------</option>
             <?php
             foreach ($itemsTypesArr as $items_types) {
-                echo "<option value='" . $items_types['id'] . "' name='type' ";
-                echo ">" . $items_types['name'] . "</option>";
+                echo "<option value='" . $items_types['category_id'] . "' name='type' ";
+                echo ">" . $items_types['category'] . "</option>";
             }
             ?>
             </select>
@@ -328,8 +327,8 @@ try {
                     <option class='disabled-input' value='' disabled>Import items</option>
     <?php
     foreach ($itemsTypesArr as $items_types) {
-        echo "<option value='" . $items_types['id'] . "' name='type' ";
-        echo ">" . $items_types['name'] . "</option>";
+        echo "<option value='" . $items_types['category_id'] . "' name='type' ";
+        echo ">" . $items_types['category'] . "</option>";
     }
     echo "<option class='disabled-input' value='' disabled>Import experiments</option>";
 
@@ -352,7 +351,7 @@ try {
         </div>
     </div>
 
-    <script src="js/tinymce/tinymce.min.js"></script>
+    <script src="app/js/edit.mode.min.js"></script>
     <script>
     function toggleTimestampInputs() {
         $('.timestampInputs').toggle();
@@ -375,7 +374,7 @@ try {
             name : 'teamGroupUpdateName',
             submit : 'Save',
             cancel : 'Cancel',
-            style : 'display:inline'
+            style : 'display:inline'
 
         });
         // SORTABLE for STATUS
@@ -469,13 +468,13 @@ try {
             plugins : "table textcolor searchreplace code fullscreen insertdatetime paste charmap save image link",
             toolbar1: "undo redo | bold italic underline | fontsizeselect | alignleft aligncenter alignright alignjustify | superscript subscript | bullist numlist outdent indent | forecolor backcolor | charmap | link",
             removed_menuitems : "newdocument",
-            language : '<?= $_SESSION['prefs']['lang'] ?>'
+            language : '<?= $Users->userData['lang'] ?>'
         });
     });
     </script>
     <?php
 } catch (Exception $e) {
-    display_message('ko', $e->getMessage());
+    echo Tools::displayMessage($e->getMessage(), 'ko');
 } finally {
     require_once 'app/footer.inc.php';
 }

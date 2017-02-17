@@ -17,42 +17,25 @@ use Exception;
  *
  */
 require_once 'app/init.inc.php';
-$page_title = _('Profile');
-$selected_menu = null;
+$pageTitle = _('Profile');
+$selectedMenu = null;
 require_once 'app/head.inc.php';
 
 try {
-    $Experiments = new Experiments($_SESSION['team_id'], $_SESSION['userid']);
-    $expArr = $Experiments->readAllFromUser();
-    $count = count($expArr);
+    // get total number of experiments
+    $Entity = new Experiments($Users);
+    $Entity->setUseridFilter();
+    $itemsArr = $Entity->read();
+    $count = count($itemsArr);
+    $UserStats = new UserStats($Users, $count);
+    $TagCloud = new TagCloud($Users->userid);
 
-    $Users = new Users();
-    $user = $Users->read($_SESSION['userid']);
-
-    // USER INFOS
-    echo "<section class='box'>";
-    echo "<img src='app/img/user.png' alt='user' /> <h4 style='display:inline'>" . _('Infos') . "</h4>";
-    echo "<hr>";
-    echo "<div>
-        <p>".$user['firstname'] . " " . $user['lastname'] . " (" . $user['email'] . ")</p>
-        <p>". $count . " " . _('experiments done since') . " " . date("l jS \of F Y", $user['register_date'])
-        ."<p><a href='ucp.php'>" . _('Go to user control panel') . "</a>";
-    echo "</div>";
-    echo "</section>";
-
-    // STATUS STATS
-    echo "<section class='box'>";
-    if ($count === 0) {
-        echo _('No statistics available yet.'); // fix division by zero
-    } else {
-        $UserStats = new UserStats($_SESSION['team_id'], $_SESSION['userid'], $count);
-        echo $UserStats->show();
-    }
-    echo "</section>";
-
-    // TAGCLOUD
-    $TagCloud = new TagCloud($_SESSION['userid']);
-    echo $TagCloud->show();
+    echo $twig->render('profile.html', array(
+        'Users' => $Users,
+        'UserStats' => $UserStats,
+        'TagCloud' => $TagCloud,
+        'count' => $count
+    ));
 
 } catch (Exception $e) {
     $Logs = new Logs();

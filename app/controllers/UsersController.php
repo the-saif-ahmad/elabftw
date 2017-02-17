@@ -15,6 +15,8 @@ use Exception;
 /**
  * Users infos from admin page
  */
+$redirect = true;
+
 try {
     require_once '../../app/init.inc.php';
 
@@ -23,7 +25,7 @@ try {
     }
 
     $FormKey = new FormKey();
-    $Users = new Users();
+    $Users = new Users(null, new Config);
 
     $tab = 1;
     $location = '../../admin.php?tab=' . $tab;
@@ -66,11 +68,31 @@ try {
         }
     }
 
+    // (RE)GENERATE AN API KEY
+    if (isset($_POST['generateApiKey'])) {
+        $redirect = false;
+        $Users->setId($_SESSION['userid']);
+        if ($Users->generateApiKey()) {
+            echo json_encode(array(
+                'res' => true,
+                'msg' => _('Saved')
+            ));
+        } else {
+            echo json_encode(array(
+                'res' => false,
+                'msg' => Tools::error()
+            ));
+        }
+    }
+
+
 } catch (Exception $e) {
     $Logs = new Logs();
     $Logs->create('Error', $_SESSION['userid'], $e->getMessage());
     $_SESSION['ko'][] = Tools::error();
 
 } finally {
-    header("Location: $location");
+    if ($redirect) {
+        header("Location: $location");
+    }
 }

@@ -19,9 +19,6 @@ use Swift_Message;
  */
 class Comments extends Entity
 {
-    /** pdo object */
-    protected $pdo;
-
     /** instance of Experiments */
     public $Experiments;
 
@@ -29,16 +26,11 @@ class Comments extends Entity
      * Constructor
      *
      * @param Experiments
-     * @param int|null $id
      */
-    public function __construct(Experiments $experiments, $id = null)
+    public function __construct(Experiments $experiments)
     {
         $this->pdo = Db::getConnection();
         $this->Experiments = $experiments;
-
-        if (!is_null($id)) {
-            $this->setId($id);
-        }
     }
 
     /**
@@ -57,7 +49,7 @@ class Comments extends Entity
         $req->bindValue(':datetime', date("Y-m-d H:i:s"));
         $req->bindParam(':exp_id', $this->Experiments->id);
         $req->bindParam(':comment', $comment);
-        $req->bindParam(':userid', $this->Experiments->userid);
+        $req->bindParam(':userid', $this->Experiments->Users->userid);
 
         if (!$req->execute()) {
             throw new Exception('Error inserting comment!');
@@ -75,12 +67,11 @@ class Comments extends Entity
     private function alertOwner()
     {
         $Config = new Config();
-        $configArr = $Config->read();
 
         // get the first and lastname of the commenter
         $sql = "SELECT firstname, lastname FROM users WHERE userid = :userid";
         $req = $this->pdo->prepare($sql);
-        $req->bindParam(':userid', $this->Experiments->userid);
+        $req->bindParam(':userid', $this->Experiments->Users->userid);
         $req->execute();
         $commenter = $req->fetch();
 
@@ -93,7 +84,7 @@ class Comments extends Entity
         $users = $req->fetch();
 
         // don't send an email if we are commenting on our own XP
-        if ($users['userid'] === $this->Experiments->userid) {
+        if ($users['userid'] === $this->Experiments->Users->userid) {
             return 1;
         }
 
@@ -108,7 +99,7 @@ class Comments extends Entity
         // Give the message a subject
         ->setSubject(_('[eLabFTW] New comment posted'))
         // Set the From address with an associative array
-        ->setFrom(array($configArr['mail_from'] => 'eLabFTW'))
+        ->setFrom(array($Config->configArr['mail_from'] => 'eLabFTW'))
         // Set the To addresses with an associative array
         ->setTo(array($users['email'] => $users['firstname'] . $users['lastname']))
         // Give it a body
@@ -148,9 +139,10 @@ class Comments extends Entity
      * Update a comment
      *
      * @param string $comment New content for the comment
+     * @param int $id id of the comment
      * @return bool
      */
-    public function update($comment)
+    public function update($comment, $id)
     {
         $comment = filter_var($comment, FILTER_SANITIZE_STRING);
         // check length
@@ -163,8 +155,8 @@ class Comments extends Entity
             WHERE id = :id AND userid = :userid";
         $req = $this->pdo->prepare($sql);
         $req->bindParam(':comment', $comment);
-        $req->bindParam(':id', $this->id, PDO::PARAM_INT);
-        $req->bindParam(':userid', $this->Experiments->userid, PDO::PARAM_INT);
+        $req->bindParam(':id', $id, PDO::PARAM_INT);
+        $req->bindParam(':userid', $this->Experiments->Users->userid, PDO::PARAM_INT);
 
         return $req->execute();
     }
@@ -172,13 +164,14 @@ class Comments extends Entity
     /**
      * Destroy a comment
      *
+     * @param int $id id of the comment
      * @return bool
      */
-    public function destroy()
+    public function destroy($id)
     {
         $sql = "DELETE FROM experiments_comments WHERE id = :id";
         $req = $this->pdo->prepare($sql);
-        $req->bindParam(':id', $this->id, PDO::PARAM_INT);
+        $req->bindParam(':id', $id, PDO::PARAM_INT);
 
         return $req->execute();
     }
