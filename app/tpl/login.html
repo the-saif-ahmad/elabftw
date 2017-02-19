@@ -16,9 +16,9 @@ if (!checkCookiesEnabled()) {
         <br>
         <p class="login-area">
         <label class='block' for="email">{{ 'Email'|trans }}</label>
-        <input class="login-area-input" name="email" type="email" value='{{ SESSION.email ? SESSION.email }}' required /><br>
+        <input class="login-area-input" id='email' name="email" type="email" value='{{ SESSION.email ? SESSION.email }}' required /><br>
         <label class='block' for="password">{{ 'Password'|trans }}</label>
-            <input class="login-area-input" name="password" type="password" required /><br>
+            <input class="login-area-input" id='password' name="password" type="password" required /><br>
             <!-- form key -->
             {{ FormKey.getFormkey|raw }}
         <input type='checkbox' name='rememberme' id='rememberme' />
