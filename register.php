@@ -22,8 +22,8 @@ try {
     $selectedMenu = null;
     require_once 'app/head.inc.php';
     // DEMO BLOCK
-    $message ="Thank you for trying eLabFTW. This is a demo. This is not a webservice: you need <a style='color:blue;' href='https://github.com/elabftw/elabftw/#readme'>to install it</a> on a server or your computer.";
-    Tools::displayMessage($message, 'ok', false);
+    $message ="Thank you for trying eLabFTW. This is a demo. This is not a webservice: you need <a style='color:blue;' href='https://elabftw.readthedocs.io/en/latest/'>to install it</a> on a server or your computer.";
+    echo Tools::displayMessage($message, 'ok', false);
     require_once 'app/footer.inc.php';
     die();
     // END DEMO BLOCK
