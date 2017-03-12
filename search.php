@@ -273,6 +273,7 @@ for ($i = 1; $i <= 5; $i++) {
             </div>
             <!-- END RATING -->
         </div>
+        <p><?= _("Tip: you can use '%' as wildcard.") ?></p>
 
         <div style='margin:30px;' class='center'>
             <button id='searchButton' class='button' value='Submit' type='submit'><?= _('Launch search') ?></button>
@@ -398,7 +399,6 @@ if (isset($_GET)) {
                     $sqlUserid = " AND experiments.userid = " . $owner;
                 }
                 if ($_GET['owner'] === '0') {
-                    $sqlUserid = '';
                     // read all experiments from team
                     $EntityView->showTeam = true;
                 }
