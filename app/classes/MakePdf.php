@@ -11,6 +11,7 @@
 namespace Elabftw\Elabftw;
 
 use mPDF;
+use Exception;
 
 /**
  * Create a pdf given an id and a type
@@ -60,9 +61,18 @@ class MakePdf extends Make
         $this->setCleanTitle();
         $this->setTags();
         $this->buildContent();
+
+        // we use a custom tmp dir, not the same as Twig because its content gets deleted after pdf is generated
+        $tmpDir = ELAB_ROOT . 'uploads/tmp/mpdf/';
+        if (!is_dir($tmpDir)) {
+            if (!mkdir($tmpDir)) {
+                throw new Exception("Could not create the $tmpDir directory. Please check permissions on this folder.");
+            }
+        }
+        define("_MPDF_TEMP_PATH", $tmpDir);
+        define("_MPDF_TTFONTDATAPATH", $tmpDir);
+
         // create the pdf
-        define("_MPDF_TEMP_PATH", ELAB_ROOT . 'uploads/tmp/');
-        define("_MPDF_TTFONTDATAPATH", ELAB_ROOT . 'uploads/tmp/');
         $mpdf = new \mPDF('utf-8', 'A4');
         // make sure header and footer are not overlapping the body text
         $mpdf->setAutoTopMargin = 'stretch';
@@ -285,7 +295,7 @@ class MakePdf extends Make
             $server_address = $_SERVER['SERVER_NAME'];
         }
 
-        $url = 'https://' . $server_address . ':' . $_SERVER['SERVER_PORT'] . $_SERVER['PHP_SELF'];
+        $url = 'https://' . $server_address . Tools::getServerPort() . $_SERVER['PHP_SELF'];
         if ($this->Entity->type === 'experiments') {
             $target = $this->Entity->type . '.php';
         } else {
@@ -346,7 +356,7 @@ class MakePdf extends Make
                 $row_cnt = $req->rowCount();
 
                 // add the item with a link
-                $url = 'https://' . $_SERVER['SERVER_NAME'] . ':' . $_SERVER['SERVER_PORT'] . $_SERVER['PHP_SELF'];
+                $url = 'https://' . $_SERVER['SERVER_NAME'] . Tools::getServerPort() . $_SERVER['PHP_SELF'];
                 for ($i = 0; $i < $row_cnt; $i++) {
 
                     $item_url = str_replace(array('make.php', 'app/controllers/ExperimentsController.php'), 'database.php', $url);

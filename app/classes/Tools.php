@@ -105,7 +105,7 @@ class Tools
     public static function checkBody($input)
     {
         $whitelist = "<div><br><br /><p><sub><img><sup><strong><b><em><u><a><s><font><span><ul><li><ol>
-            <blockquote><h1><h2><h3><h4><h5><h6><hr><table><tr><td><code><video><audio><pagebreak>";
+            <blockquote><h1><h2><h3><h4><h5><h6><hr><table><tr><td><code><video><audio><pagebreak><pre>";
         return strip_tags($input, $whitelist);
     }
 
@@ -429,5 +429,25 @@ class Tools
         if ($getParam === $value) {
             return " selected";
         }
+    }
+
+    /**
+     * When you want to know the server port used
+     * We cannot rely on SERVER_PORT because it'll always be 443 inside Docker
+     * See issue #362
+     * If the port is standard (443), it will not appear in HTTP_HOST, but otherwise it'll be there
+     * so we can get the custom port from here
+     *
+     * @return string empty if standard port or ":444"
+     */
+    public static function getServerPort()
+    {
+        $port = '';
+        if (strpos($_SERVER['HTTP_HOST'], ':')) {
+            $hostArr = explode(':', $_SERVER['HTTP_HOST']);
+            $port = ':' . $hostArr[1];
+        }
+
+        return $port;
     }
 }
