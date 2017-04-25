@@ -478,6 +478,9 @@ class Users extends Auth
         if ($params['display'] === 'compact') {
             $new_display = 'compact';
         }
+        // FOR DEMO DISPLAY IS ALWAYS DEFAULT
+        $new_display = 'default';
+        // END DEMO BLOCK
 
         // LIMIT
         $filter_options = array(
