@@ -19,7 +19,6 @@ use Exception;
 try {
     require_once 'app/init.inc.php';
     $pageTitle = _('Revisions');
-    $selectedMenu = null;
     $errflag = false;
     require_once 'app/head.inc.php';
 
@@ -40,24 +39,14 @@ try {
     $Entity->canOrExplode('write');
     $Revisions = new Revisions($Entity);
 
-    // THE RESTORE ACTION
-    if (isset($_GET['action']) && $_GET['action'] === 'restore') {
-        $revId = Tools::checkId($_GET['rev_id']);
-        if ($revId === false) {
-            throw new Exception(_('The id parameter is not valid!'));
-        }
-
-        $Revisions->restore($revId);
-
-        header("Location: " . $location . ".php?mode=view&id=" . $_GET['item_id']);
-        throw new Exception('Redirect');
-    }
-
     // BEGIN PAGE
-    echo "<a href='" . $location . ".php?mode=view&id=" . $_GET['item_id'] . "'><h4><img src='app/img/undo.png' alt='<--' /> " . _('Go back') . "</h4></a>";
+    echo "<a href='" . $location . ".php?mode=view&id=" . $_GET['item_id'] .
+        "'><h4><img src='app/img/undo.png' alt='<--' /> " . _('Go back') . "</h4></a>";
     $revisionArr = $Revisions->read();
     foreach ($revisionArr as $revision) {
-        echo "<div class='item'>" . _('Saved on:') . " " . $revision['savedate'] . " <a href='revisions.php?item_id=" . $_GET['item_id'] . "&type=" . $_GET['type'] . "&action=restore&rev_id=" . $revision['id'] . "'>" . _('Restore') . "</a><br>";
+        echo "<div class='item'>" . _('Saved on:') . " " . $revision['savedate'] .
+            " <a href='app/controllers/RevisionsController.php?item_id=" . $_GET['item_id'] .
+            "&type=" . $_GET['type'] . "&action=restore&rev_id=" . $revision['id'] . "'>" . _('Restore') . "</a><br>";
         echo $revision['body'] . "</div>";
     }
 

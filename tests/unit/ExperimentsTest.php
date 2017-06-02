@@ -27,7 +27,7 @@ class ExperimentsTest extends \PHPUnit_Framework_TestCase
 
     public function testSetId()
     {
-        $this->setExpectedException('Exception');
+        $this->expectException(\Exception::class);
         $this->Experiments->setId('alpha');
     }
 
@@ -39,7 +39,7 @@ class ExperimentsTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue(is_array($experiment));
         $this->assertEquals('Untitled', $experiment['title']);
         $this->assertEquals('20160729', $experiment['date']);
-        $this->setExpectedException('Exception');
+        $this->expectException(\Exception::class);
         $this->Experiments->setId('a9999999999');
     }
 
@@ -53,9 +53,10 @@ class ExperimentsTest extends \PHPUnit_Framework_TestCase
 
     public function testUpdate()
     {
-        $this->Experiments->setId(1);
+        $new = $this->Experiments->create();
+        $this->Experiments->setId($new);
         $this->Experiments->populate();
-        $this->assertEquals(1, $this->Experiments->id);
+        $this->assertEquals($new, $this->Experiments->id);
         $this->assertEquals(1, $this->Experiments->Users->userid);
         $this->assertTrue($this->Experiments->update('Untitled', '20160729', '<p>Body</p>'));
     }

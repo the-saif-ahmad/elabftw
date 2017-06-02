@@ -19,7 +19,6 @@ use Exception;
 try {
     require_once 'app/init.inc.php';
     $pageTitle = _('Register');
-    $selectedMenu = null;
     require_once 'app/head.inc.php';
     // DEMO BLOCK
     $message ="Thank you for trying eLabFTW. This is a demo. This is not a webservice: you need <a style='color:blue;' href='https://elabftw.readthedocs.io/en/latest/'>to install it</a> on a server or your computer.";
@@ -37,10 +36,17 @@ try {
         ));
     }
 
+    $Config = new Config();
+    // local register might be disabled
+    if ($Config->configArr['local_register'] === '0') {
+        throw new Exception(_('No local account creation is allowed!'));
+    }
+
     $Teams = new Teams();
     $teamsArr = $Teams->readAll();
     echo $twig->render('register.html', array(
-        'teamsArr' => $teamsArr
+        'teamsArr' => $teamsArr,
+        'showLocal' => $showLocal
     ));
 
 } catch (Exception $e) {

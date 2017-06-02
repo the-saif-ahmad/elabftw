@@ -14,7 +14,6 @@ namespace Elabftw\Elabftw;
 
 use DateTime;
 use Exception;
-use Elabftw\Elabftw\Update;
 use Defuse\Crypto\Crypto as Crypto;
 use Defuse\Crypto\Key as Key;
 
@@ -77,10 +76,6 @@ class TrustedTimestamps extends Entity
 
         $this->pdo = Db::getConnection();
 
-        // will be used in sqlUpdate()
-        $this->setId($this->Entity->id);
-        $this->canOrExplode('write');
-
         $this->generatePdf();
 
         // initialize with info from config
@@ -106,7 +101,7 @@ class TrustedTimestamps extends Entity
     private function generatePdf()
     {
         try {
-            $pdf = new MakePdf($this->Entity, true);
+            $pdf = new MakePdf($this->Entity, true, true);
             $this->pdfPath = $pdf->filePath;
             $this->pdfLongName = $pdf->fileName;
         } catch (Exception $e) {
@@ -335,7 +330,7 @@ class TrustedTimestamps extends Entity
         curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, file_get_contents($this->requestfilePath));
         curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/timestamp-query'));
-        curl_setopt($ch, CURLOPT_USERAGENT, "Elabftw/" . Update::INSTALLED_VERSION);
+        curl_setopt($ch, CURLOPT_USERAGENT, "Elabftw/" . ReleaseCheck::INSTALLED_VERSION);
         $binaryResponseString = curl_exec($ch);
         $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);

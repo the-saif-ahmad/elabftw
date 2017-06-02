@@ -10,6 +10,8 @@
  */
 namespace Elabftw\Elabftw;
 
+use Exception;
+
 /**
  * Entity View to show/view/edit experiments or DB items
  */
@@ -55,8 +57,10 @@ class EntityView
     public function initViewEdit()
     {
         $this->Entity->populate();
-        // add the title in the page name (see #324)
-        $this->html .= "<script>document.title = '" . $this->getCleanTitle($this->Entity->entityData['title']) . "';</script>";
+        // throw error if the id is empty (non existing id)
+        if (empty($this->Entity->entityData['userid'])) {
+            throw new Exception(Tools::error(true));
+        }
 
         // get the UploadsView object
         $this->UploadsView = new UploadsView(new Uploads($this->Entity));
@@ -74,9 +78,9 @@ class EntityView
     }
 
     /**
-     * Generate HTML for show mode
+     * Get the items in itemsArr
      *
-     * @return string
+     * @return null
      */
     public function buildShow()
     {
@@ -89,7 +93,7 @@ class EntityView
 
             if (!$this->showTeam && $this->Entity instanceof Experiments) {
                 // filter by user only if we are not making a search
-                if ($this->searchType === '') {
+                if ($this->searchType === '' || $this->searchType === 'filter') {
                     $this->Entity->setUseridFilter();
                 }
             }
@@ -290,7 +294,7 @@ class EntityView
      * @param $title string
      * @return string
      */
-    protected function getCleanTitle($title)
+    public function getCleanTitle($title)
     {
         return str_replace(array('#', "&39;", "&34;"), '', $title) . " - eLabFTW";
     }

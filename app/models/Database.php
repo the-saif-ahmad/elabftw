@@ -18,6 +18,8 @@ use Exception;
  */
 class Database extends Entity
 {
+    use EntityTrait;
+
     /**
      * Constructor
      *
@@ -61,42 +63,6 @@ class Database extends Entity
         ));
 
         return $this->pdo->lastInsertId();
-    }
-
-    /**
-     * Update a database item
-     *
-     * @param string $title
-     * @param string $date
-     * @param string $body
-     * @return bool
-     */
-    public function update($title, $date, $body)
-    {
-        $title = Tools::checkTitle($title);
-        $date = Tools::kdate($date);
-        $body = Tools::checkBody($body);
-
-        $sql = "UPDATE items
-            SET title = :title,
-            date = :date,
-            body = :body,
-            userid = :userid
-            WHERE id = :id";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':title', $title);
-        $req->bindParam(':date', $date);
-        $req->bindParam(':body', $body);
-        $req->bindParam(':userid', $this->Users->userid);
-        $req->bindParam(':id', $this->id);
-
-        // add a revision
-        $Revisions = new Revisions($this);
-        if (!$Revisions->create($body)) {
-            throw new Exception(Tools::error());
-        }
-
-        return $req->execute();
     }
 
     /**

@@ -8,10 +8,8 @@ class_name: AcceptanceTester
 modules:
     enabled:
         - WebDriver:
-            url: https://localhost/elabftw
-            browser: phantomjs
-            capabilities:
-               phantomjs.cli.args: ['--ignore-ssl-errors=true']
+            url: https://elab.local
+            browser: chrome
         - \Helper\Acceptance
         - Db:
             dsn: 'mysql:host=localhost;dbname=phpunit'
@@ -20,4 +18,4 @@ modules:
             dump: 'tests/_data/phpunit.sql'
             populate: true
             cleanup: true
-            reconnect: true
+            #reconnect: true

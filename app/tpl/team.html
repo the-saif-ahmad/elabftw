@@ -69,32 +69,9 @@
 
 </div>
 
+<script src='app/js/tabs.min.js'></script>
 <script>
 $(document).ready(function() {
-    // TABS
-    // get the tab=X parameter in the url
-    var params = getGetParameters();
-    var tab = parseInt(params['tab']);
-    if (!isInt(tab)) {
-        var tab = 1;
-    }
-    var initdiv = '#tab' + tab + 'div';
-    var inittab = '#tab' + tab;
-    // init
-    $(".divhandle").hide();
-    $(initdiv).show();
-    $(inittab).addClass('selected');
-
-    $(".tabhandle" ).click(function(event) {
-        var tabhandle = '#' + event.target.id;
-        var divhandle = '#' + event.target.id + 'div';
-        $(".divhandle").hide();
-        $(divhandle).show();
-        $(".tabhandle").removeClass('selected');
-        $(tabhandle).addClass('selected');
-    });
-    // END TABS
-
     // SCHEDULER
 	$('#scheduler').fullCalendar({
 			header: {
@@ -131,12 +108,17 @@ $(document).ready(function() {
             // delete by clicking it
             eventClick: function(calEvent) {
                 if (confirm('Delete this event?')) {
-                    $('#scheduler').fullCalendar('removeEvents', calEvent.id);
                     $.post('app/controllers/SchedulerController.php', {
                         destroy: true,
                         id: calEvent.id
-                    }).done(function() {
-                        notif('Deleted', 'ok');
+                    }).done(function(data) {
+                        var json = JSON.parse(data);
+                        if (json.res) {
+                            $('#scheduler').fullCalendar('removeEvents', calEvent.id);
+                            notif(json.msg, 'ok');
+                        } else {
+                            notif(json.msg, 'ko');
+                        }
                     });
                 }
             },

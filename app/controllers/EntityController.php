@@ -19,10 +19,19 @@ use Exception;
 try {
     require_once '../../app/init.inc.php';
 
-    if ($_POST['type'] === 'experiments') {
-        $Entity = new Experiments($Users, $_POST['id']);
+    $id = 1;
+
+    if (isset($_POST['id'])) {
+        $id = $_POST['id'];
+    } elseif (isset($GET['id'])) {
+        $id = $_GET['id'];
+    }
+
+    if ((isset($_POST['type']) && $_POST['type'] === 'experiments') ||
+        (isset($_GET['type']) && ($_GET['type'] === 'experiments'))) {
+        $Entity = new Experiments($Users, $id);
     } else {
-        $Entity = new Database($Users, $_POST['id']);
+        $Entity = new Database($Users, $id);
     }
     // GET BODY
     if (isset($_POST['getBody'])) {
@@ -113,6 +122,23 @@ try {
         $Entity->canOrExplode('write');
         $Tags = new Tags($Entity);
         $Tags->destroy($_POST['tag_id']);
+    }
+
+    // GET TAG LIST
+    if (isset($_GET['term']) && isset($_GET['tag'])) {
+        $Tags = new Tags($Entity);
+        $term = filter_var($_GET['term'], FILTER_SANITIZE_STRING);
+        echo json_encode($Tags->getList($term));
+    }
+
+    // GET MENTION LIST
+    if (isset($_GET['term']) && isset($_GET['mention'])) {
+        $userFilter = false;
+        $term = filter_var($_GET['term'], FILTER_SANITIZE_STRING);
+        if (isset($_GET['userFilter'])) {
+            $userFilter = true;
+        }
+        echo json_encode($Entity->getMentionList($term, $userFilter));
     }
 
     // UPDATE FILE COMMENT

@@ -11,7 +11,7 @@
     <script src='app/js/chemdoodle/chemdoodle.min.js'></script>
 {% endif %}
 
-{% if Ev.ro %}
+{% if Ev.isReadOnly %}
     {{ 'Read-only mode. Experiment of %s.'|trans|format(ownerName)|msg('ok', false) }}
 {% endif %}
 
@@ -67,16 +67,16 @@
 {% endif %}
 <a class='elab-tooltip' href='#'>
     <span>{{ alt }}</span>
-    <img id='lock' onClick="toggleLock('{{ Ev.Entity.type }}', {{ Ev.Entity.id }})" src='app/img/{{ imgSrc }}' alt='{{ alt }}' />
+    <img id='lock' src='app/img/{{ imgSrc }}' alt='{{ alt }}' />
 </a>
 
 <!-- show timestamp button if not timestamped already -->
-{% if not Ev.Entity.entityData['timestamped'] and Ev.Entity.type == 'experiments' %}
+{% if not Ev.Entity.entityData.timestamped and Ev.Entity.isTimestampable() and Ev.Entity.type == 'experiments' %}
     <a class='elab-tooltip'>
         <span>{{ 'Timestamp Experiment' }}</span>
-        <img onClick='confirmTimestamp()' src='app/img/stamp.png' alt='Timestamp' />
+        <img id='confirmTimestamp' src='app/img/stamp.png' alt='Timestamp' />
     </a>
-    <div id='confirm-timestamp' title='{{ 'Timestamp this experiment?'|trans }}'>
+    <div id='confirmTimestampDiv' data-wait='{{ 'Please wait…' }}' title='{{ 'Timestamp this experiment?'|trans }}'>
         <p>
             <span class='ui-icon ui-icon-alert' style='float:left; margin:12px 12px 20px 0;'></span>
             {{ 'Once timestamped an experiment cannot be edited anymore! Are you sure you want to do this?'|trans }}
@@ -85,31 +85,31 @@
 {% endif %}
 
 <!-- build the tag array -->
-{% if Ev.Entity.entityData['tags']|length > 0 %}
+{% if Ev.Entity.entityData.tags|length > 0 %}
     <span class='tags'><img src='app/img/tags.png' alt='tags' />
-    {% set tagsIdArr = Ev.Entity.entityData['tags_id']|split(',') %}
-    {% set tagsValueArr = Ev.Entity.entityData['tags']|split('|') %}
+    {% set tagsIdArr = Ev.Entity.entityData.tags_id|split(',') %}
+    {% set tagsValueArr = Ev.Entity.entityData.tags|split('|') %}
     {% for key, tag in tagsValueArr %}
         {# the key allows to get the id stored in tagsIdArr #}
-        <a href='{{ page }}?mode=show&tag={{ tag|url_encode }}'>{{ tag }}</a>
+        <a href='{{ page }}?mode=show&tag={{ tag|url_encode }}'>{{ tag|raw }}</a>
     {% endfor %}
 {% endif %}
 
 <!-- TITLE : click on it to go to edit mode only if we are not in read only mode -->
-{% if not Ev.ro and not Ev.Entity.entityData['locked'] %}
-    {% set onClick = "\"document.location='{{ page }}?mode=edit&id={{ Ev.Entity.entityData['id'] }}'\"" %}
+{% if not Ev.ro and not Ev.Entity.entityData.locked %}
+    {% set click2Edit = 'click2Edit clickable' %}
 {% else %}
-    {% set onClick = '' %}
+    {% set click2Edit = '' %}
 {% endif %}
-<div {{ onClick }} class='title_view'>
+<div data-page='{{ page }}' class='{{ click2Edit }} title_view'>
     {% if Ev.Entity.type == 'items' %}
-        <span style='color:#{{ Ev.Entity.entityData['color'] }}'>{{ Ev.Entity.entityData['category'] }}</span>
+        <span style='color:#{{ Ev.Entity.entityData['color'] }}'>{{ Ev.Entity.entityData.category }}</span>
     {% endif %}
-    {{ Ev.Entity.entityData['title']|raw }}
+    {{ Ev.Entity.entityData.title|raw }}
 </div>
 <!--  BODY (show only if not empty -->
-{% if Ev.Entity.entityData['body'] != '' %}
-<div id='body_view' class='txt'>{{ Ev.Entity.entityData['body']|raw }}</div>
+{% if Ev.Entity.entityData.body != '' %}
+<div id='body_view' class='txt'>{{ Ev.Entity.entityData.body|raw }}</div>
 <br>
 {% endif %}
 
@@ -137,58 +137,40 @@
 </section>
 
 {% if Ev.Entity.type == 'experiments' %}
-<script>
-    function commentsUpdate() {
-        // Experiment comment is editable
-        $('div#expcomment').on('mouseover', '.editable', function(){
-            $('div#expcomment p.editable').editable('app/controllers/CommentsController.php', {
-                name: 'commentsUpdate',
-                tooltip : 'Click to edit',
-                indicator : '{{ 'Saving'|trans }}',
-                submit : '{{ 'Save'|trans }}',
-                cancel : '{{ 'Cancel'|trans }}',
-                style : 'display:inline',
-                callback : function() {
-                    // now we reload the comments part to show the comment we just submitted
-                    $('#expcomment_container').load('experiments.php?mode=view&id={{ Ev.Entity.id }} #expcomment');
-                    // we reload the function so editable zones are editable again
-                    commentsUpdate();
-                }
-            })
-        });
-    }
-    // TIMESTAMP
-    function confirmTimestamp() {
-        $('#confirm-timestamp').dialog({
-            resizable: false,
-            height: 'auto',
-            width: 400,
-            modal: true,
-            buttons: {
-                'Timestamp it': function() {
-                    timestamp({{ Ev.Entity.id }});
-                },
-                Cancel: function() {
-                    $(this).dialog('close');
-                }
-            }
-        });
-    }
+    <section id='expcomment_container'>
+        <div id='expcomment' class='box'>
+            <h3><img src='app/img/comment.png' alt='comment' />{{ 'Comments'|trans }}</h3>
 
-    // READY ? GO !!
-    $(document).ready(function() {
-        $('#confirm-timestamp').hide();
-        $('#commentsCreateButtonDiv').hide();
+            {% if commentsArr|length > 0 %}
+                {% for comment in commentsArr %}
+                    <div class='expcomment_box'>
+                        <img class='align_right commentsDestroy' src='app/img/small-trash.png' title='delete' alt='delete' data-id='{{ comment.id }}' data-expid='{{ Ev.Entity.id }}' data-confirm='{{ 'Delete this?'|trans }}' />
+                        <span>On {{ comment.datetime }} {{ comment.fullname }} wrote :</span>
+                        <!-- .editable uses the id of the element to send to the controller -->
+                        <p class='editable' id='{{ comment.id }}' data-indicator='{{ 'Saving'|trans }}' data-submit='{{ 'Save'|trans }}' data-cancel='{{ 'Cancel'|trans }}'>{{ comment.comment }}</p>
+                    </div>
+                {% endfor %}
+            {% endif %}
 
-        // Keyboard shortcuts
-        key('{{ Ev.Entity.Users.userData['sc_create'] }}', function(){
-            location.href = '{{ controller }}?create=true';
-        });
-        key('{{ Ev.Entity.Users.userData['sc_edit'] }}', function(){
-            location.href = '{{ page }}?mode=edit&id={{ Ev.Entity.id }}';
-        });
-        // make editable
-        setInterval(commentsUpdate, 50);
-    });
-</script>
+            <textarea id='commentsCreateArea' placeholder='{{ 'Add a comment'|trans }}'></textarea>
+            <div id='commentsCreateButtonDiv' class='submitButtonDiv'>
+                <button class='button' id='commentsCreateButton' data-expid='{{ Ev.Entity.id }}'>{{ 'Save'|trans }}</button>
+            </div>
+        </div>
+    </section>
+
 {% endif %}
+
+<div id='entityInfos'
+    data-title='{{ cleanTitle }}'
+    data-type='{{ Ev.Entity.type }}'
+    data-id='{{ Ev.Entity.id }}'
+    data-controller='{{ controller }}'
+    data-confirm="{{ 'Delete this?'|trans }}"
+    data-page='{{ page }}'>
+</div>
+<div id='shortcuts'
+    data-create='{{ Ev.Entity.Users.userData.sc_create }}'
+    data-edit='{{ Ev.Entity.Users.userData.sc_edit }}'>
+</div>
+<script src='app/js/view.min.js'></script>

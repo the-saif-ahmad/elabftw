@@ -1,17 +1,9 @@
-<script>
-// Check for cookies
-if (!checkCookiesEnabled()) {
-    var cookie_alert =
-        "<div class='alert alert-danger'><p>{{ 'Please enable cookies in your navigator to continue.'|trans }}</p></div>";
-    document.write(cookie_alert);
-}
-</script>
-
 <menu class='border' style='color:#29AEB9'>{{ 'Note: You need cookies enabled to log in.'|trans }}</menu>
 
 <section class='center'>
+    {% if showLocal %}
     <!-- Login form , the id is for an acceptance test -->
-    <form method="post" id='login' action="app/login-exec.php" autocomplete="off">
+    <form method="post" id='login' action="app/controllers/LoginController.php" autocomplete="off">
         <h2>{{ 'Sign in to your account'|trans }}</h2>
         <br>
         <p class="login-area">
@@ -35,12 +27,29 @@ if (!checkCookiesEnabled()) {
             "<a href='#' class='trigger'>",
             "</a>")|raw }}
     </p>
+    {% endif %}
+
+    {% if idpsArr|length > 0 %}
+
+        <h2>{{ 'Login through your institution'|trans }}</h2>
+        <br>
+        <form method='post' id='saml-login' action='app/controllers/LoginController.php' autocomplete='off'>
+            <select name='idp_id'>
+                {% for idp in idpsArr %}
+                    <option value='{{ idp.id }}'>{{ idp.name }}</option>
+                {% endfor %}
+            </select>
+            <button class='button' type='submit' name='submit'>Go</button>
+        </form>
+    {% endif %}
+
     <div class='toggle_container'>
     <form name='resetPass' method='post' action='app/controllers/ResetPasswordController.php'>
         <input placeholder='{{ 'Enter your email address'|trans }}' name='email' type='email' required />
         <button class='button' type="submit" name="Submit">{{ 'Send new password'|trans }}</button>
     </form>
     </div>
+
 </section>
 
 <script>
@@ -55,3 +64,4 @@ $(document).ready(function(){
 	});
 });
 </script>
+<script src='app/js/login.min.js'></script>

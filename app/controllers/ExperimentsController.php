@@ -64,13 +64,13 @@ try {
         $Entity->canOrExplode('write');
 
 
-        if ($Entity->updateStatus($_POST['status'])) {
+        if ($Entity->updateStatus($_POST['statusId'])) {
             // get the color of the status for updating the css
             $Status = new Status($Users);
             echo json_encode(array(
                 'res' => true,
                 'msg' => _('Saved'),
-                'color' => $Status->readColor($_POST['status'])
+                'color' => $Status->readColor($_POST['statusId'])
             ));
         } else {
             echo json_encode(array(
@@ -138,15 +138,27 @@ try {
         }
     }
 
+    // GET LINK LIST
+    if (isset($_GET['term'])) {
+        echo json_encode($Entity->getLinkList($_GET['term']));
+    }
+
     // TIMESTAMP
     if (isset($_POST['timestamp'])) {
         try {
             $Entity->setId($_POST['id']);
             $Entity->canOrExplode('write');
-            $ts = new TrustedTimestamps(new Config(), new Teams($_SESSION['team_id']), $Entity);
-            if ($ts->timeStamp()) {
+            if ($Entity->isTimestampable()) {
+                $ts = new TrustedTimestamps(new Config(), new Teams($_SESSION['team_id']), $Entity);
+                if ($ts->timeStamp()) {
+                    echo json_encode(array(
+                        'res' => true
+                    ));
+                }
+            } else {
                 echo json_encode(array(
-                    'res' => true
+                    'res' => false,
+                    'msg' => _('This experiment cannot be timestamped!')
                 ));
             }
         } catch (Exception $e) {
@@ -157,7 +169,6 @@ try {
                 'msg' => $e->getMessage()
             ));
         }
-
     }
 
     // DESTROY
@@ -197,7 +208,6 @@ try {
             'msg' => $TrustedTimestamps->decodeAsn1($_POST['asn1'])
         ));
     }
-
 } catch (Exception $e) {
     $Logs = new Logs();
     $Logs->create('Error', $_SESSION['userid'], $e->getMessage());

@@ -89,11 +89,12 @@ try {
     } elseif ($_GET['mode'] === 'view') {
 
         $EntityView->Entity->setId($_GET['id']);
+        $Comments = new Comments($EntityView->Entity);
         $EntityView->initViewEdit();
-        $EntityView->ro = $EntityView->isReadOnly();
 
+        $commentsArr = $Comments->read();
         $ownerName = '';
-        if ($EntityView->ro) {
+        if ($EntityView->isReadOnly()) {
             // we need to get the fullname of the user who owns the experiment to display the RO message
             $Owner = new Users($EntityView->Entity->entityData['userid']);
             $ownerName = $Owner->userData['fullname'];
@@ -103,12 +104,13 @@ try {
             echo $EntityView->showTimestamp();
         }
 
-
         echo $twig->render('view.html', array(
             'Ev' => $EntityView,
             'Status' => $Status,
             'Tags' => $Tags,
-            'ownerName' => $ownerName
+            'commentsArr' => $commentsArr,
+            'ownerName' => $ownerName,
+            'cleanTitle' => $EntityView->getCleanTitle($EntityView->Entity->entityData['title'])
         ));
         echo $EntityView->view();
 
@@ -119,7 +121,6 @@ try {
         $EntityView->initViewEdit();
         // check permissions
         $EntityView->Entity->canOrExplode('write');
-
         // a locked experiment cannot be edited
         if ($EntityView->Entity->entityData['locked']) {
             throw new Exception(_('<strong>This item is locked.</strong> You cannot edit it.'));
@@ -131,7 +132,8 @@ try {
             'Ev' => $EntityView,
             'Revisions' => $Revisions,
             'Status' => $Status,
-            'Tags' => $Tags
+            'Tags' => $Tags,
+            'cleanTitle' => $EntityView->getCleanTitle($EntityView->Entity->entityData['title'])
         ));
         echo $EntityView->buildUploadsHtml();
     }

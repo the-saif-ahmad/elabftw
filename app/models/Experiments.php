@@ -18,8 +18,10 @@ use Exception;
  */
 class Experiments extends Entity
 {
+    use EntityTrait;
+
     /** pdo object */
-    public $pdo;
+    protected $pdo;
 
     /** our team */
     public $team;
@@ -49,7 +51,6 @@ class Experiments extends Entity
 
         $this->Links = new Links($this);
         $this->Comments = new Comments($this);
-
     }
 
     /**
@@ -63,13 +64,11 @@ class Experiments extends Entity
         $Templates = new Templates($this->Users);
 
         // do we want template ?
-        if ($tpl) {
+        if ($tpl !== null) {
             $Templates->setId($tpl);
             $templatesArr = $Templates->read();
             $title = $templatesArr['name'];
-
         } else {
-
             $templatesArr = $Templates->readCommon();
             $title = _('Untitled');
         }
@@ -120,39 +119,6 @@ class Experiments extends Entity
         }
 
         return $itemsArr;
-    }
-
-    /**
-     * Update an experiment
-     *
-     * @param string $title
-     * @param string $date
-     * @param string $body
-     * @return bool
-     */
-    public function update($title, $date, $body)
-    {
-        $title = Tools::checkTitle($title);
-        $date = Tools::kdate($date);
-        $body = Tools::checkBody($body);
-
-        $sql = "UPDATE experiments SET
-            title = :title,
-            date = :date,
-            body = :body
-            WHERE userid = :userid
-            AND id = :id";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':title', $title);
-        $req->bindParam(':date', $date);
-        $req->bindParam(':body', $body);
-        $req->bindParam(':userid', $this->Users->userid);
-        $req->bindParam(':id', $this->id);
-
-        // add a revision
-        $Revisions = new Revisions($this);
-
-        return $req->execute() && $Revisions->create($body);
     }
 
     /**
@@ -210,6 +176,21 @@ class Experiments extends Entity
         $req->bindParam(':id', $this->id, PDO::PARAM_INT);
 
         return $req->execute();
+    }
+
+    /**
+    * Returns if this experiment can be timestamped
+    *
+    * @return bool
+    */
+    public function isTimestampable()
+    {
+        $currentStatus = (int) $this->entityData['category_id'];
+        $sql = "SELECT is_timestampable FROM status WHERE id = :status;";
+        $req = $this->pdo->prepare($sql);
+        $req->bindParam(':status', $currentStatus);
+        $req->execute();
+        return (bool) $req->fetchColumn();
     }
 
     /**

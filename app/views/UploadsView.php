@@ -12,6 +12,7 @@ namespace Elabftw\Elabftw;
 
 /**
  * Experiments View
+ * @deprecated should be a twig template
  */
 class UploadsView extends EntityView
 {
@@ -130,7 +131,23 @@ class UploadsView extends EntityView
             $commonExtensions = array('avi', 'csv', 'doc', 'docx', 'mov', 'pdf', 'ppt', 'rar', 'xls', 'xlsx', 'zip');
 
             // list of extensions understood by 3Dmol.js
-            $molExtensions = array('pdb', 'sdf', 'mol2', 'mmcif', 'cif');
+            // see http://3dmol.csb.pitt.edu/doc/types.html
+            $molExtensions = array(
+                'cdjson',
+                'cif',
+                'cube',
+                'gro',
+                'json',
+                'mcif',
+                'mmtf',
+                'mol2',
+                'pdb',
+                'pqr',
+                'prmtop',
+                'sdf',
+                'vasp',
+                'xyz'
+            );
 
             // Make thumbnail only if it isn't done already
             if (!file_exists($thumbpath)) {
@@ -138,10 +155,15 @@ class UploadsView extends EntityView
             }
 
             // only display the thumbnail if the file is here
-            if (file_exists($thumbpath) && preg_match('/(jpg|jpeg|png|gif)$/i', $ext)) {
+            if (file_exists($thumbpath) && preg_match('/(jpg|jpeg|png|gif|tif|tiff|pdf|eps|svg)$/i', $ext)) {
                 // if it's a picture, we display it with fancybox
                 // see: http://fancyapps.com/fancybox/3/docs/
-                $html .= "<a href='app/download.php?f=" . $upload['long_name'] . "' data-fancybox='group' ";
+                $fancybox = ' ';
+                if (preg_match('/(jpg|jpeg|png|gif)$/i', $ext)) {
+                    $fancybox = " data-fancybox='group' ";
+                }
+
+                $html .= "<a href='app/download.php?f=" . $upload['long_name'] . "'" . $fancybox;
                 if ($upload['comment'] != 'Click to add a comment') {
                     $html .= "title='" . $upload['comment'] . "' data-caption='" . $upload['comment'] . "'";
                 }
@@ -177,8 +199,8 @@ class UploadsView extends EntityView
 
             // now display the name + comment with icons
             $html .= "<div class='caption'><img src='app/img/attached.png' alt='attached' /> ";
-            $html .= "<a href='app/download.php?f=" . $upload['long_name'] .
-                "&name=" . $upload['real_name'] . "' target='_blank'>" . $upload['real_name'] . "</a>";
+            $linkUrl = "app/download.php?f=" . $upload['long_name'] . "&name=" . $upload['real_name'];
+            $html .= "<a href='" . $linkUrl . "' target='_blank'>" . $upload['real_name'] . "</a>";
             $html .= "<span class='smallgray' style='display:inline'> " .
                 Tools::formatBytes(filesize('uploads/' . $upload['long_name'])) . "</span><br>";
             // if we are in view mode, we don't show the comment if it's the default text
@@ -191,18 +213,28 @@ class UploadsView extends EntityView
                 stripslashes($upload['comment']) . "</p>";
                 $html .= $comment;
             }
+
+            if ($mode === 'edit' && preg_match('/(jpg|jpeg|png|gif|tif|tiff|svg)$/i', $ext)) {
+                $html .= "<div class='inserter clickable' data-link='" . $upload['long_name'] . "'><img src='app/img/show-more.png' /> <p class='inline'>Insert in text at cursor position</p></div>";
+            }
             $html .= "</div></div></div>";
         } // end foreach
         $html .= "</div></div></div>";
 
-        $html .= "<script>$(document).ready(function() {
-                // we use fancybox to display thumbnails
-                $('a.fancybox').fancybox();";
+        $html .= "<script>$(document).ready(function() {";
+        if ($mode === 'view') {
+            // we use fancybox to display thumbnails only in view mode
+            $html .= "$('[data-fancybox]').fancybox();";
+        }
 
         // add editable comments in edit mode
         if ($mode === 'edit') {
             $html .= "$('.thumbnail').on('mouseover', '.editable', function(){
                     makeEditableFileComment('" . $this->Uploads->Entity->type . "', " . $this->Uploads->Entity->id . ");
+                });";
+            $html .= "$(document).on('click', '.inserter',  function() {
+                var imgLink = \"<img src='app/download.php?f=\" + $(this).data('link') + \"' />\";
+                tinymce.activeEditor.execCommand('mceInsertContent', false, imgLink);
                 });";
         }
         $html .= "});</script>";

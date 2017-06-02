@@ -18,6 +18,8 @@ use PDO;
  */
 class Entity
 {
+    use EntityTrait;
+
     /** pdo object */
     protected $pdo;
 
@@ -79,21 +81,6 @@ class Entity
     public $entityData;
 
     /**
-     * Check and set id
-     *
-     * @param int $id
-     */
-    public function setId($id)
-    {
-        if (Tools::checkId($id) === false) {
-            throw new Exception(_('The id parameter is not valid!'));
-        }
-        $this->id = $id;
-        // prevent reusing of old data from previous id
-        unset($this->entityData);
-    }
-
-    /**
      * Now that we have an id, we can read the data and set the permissions
      *
      */
@@ -118,7 +105,8 @@ class Entity
 
         $uploadsJoin = "LEFT JOIN (
             SELECT uploads.item_id AS up_item_id,
-                (uploads.item_id IS NOT NULL) AS has_attachment, uploads.type FROM uploads GROUP BY uploads.item_id, uploads.type)
+                (uploads.item_id IS NOT NULL) AS has_attachment,
+                uploads.type FROM uploads GROUP BY uploads.item_id, uploads.type)
             AS uploads
             ON (uploads.up_item_id = " . $this->type . ".id AND uploads.type = '" . $this->type . "')";
 
@@ -126,7 +114,8 @@ class Entity
 
         if ($this instanceof Experiments) {
             $select = "SELECT DISTINCT " . $this->type . ".*,
-                status.color, status.name AS category, status.id AS category_id, uploads.up_item_id, uploads.has_attachment";
+                status.color, status.name AS category, status.id AS category_id,
+                    uploads.up_item_id, uploads.has_attachment";
 
             $expCommentsSelect = ", experiments_comments.recentComment";
             $from = "FROM experiments";
@@ -134,7 +123,8 @@ class Entity
             $tagsJoin = "LEFT JOIN experiments_tags AS tagt ON (experiments.id = tagt.item_id)";
             $statusJoin = "LEFT JOIN status ON (status.id = experiments.status)";
             $commentsJoin = "LEFT JOIN (
-                SELECT MAX(experiments_comments.datetime) AS recentComment, experiments_comments.exp_id FROM experiments_comments GROUP BY experiments_comments.exp_id
+                SELECT MAX(experiments_comments.datetime) AS recentComment,
+                    experiments_comments.exp_id FROM experiments_comments GROUP BY experiments_comments.exp_id
                 ) AS experiments_comments
                 ON (experiments_comments.exp_id = experiments.id)";
             $where = "WHERE experiments.team = :team";
@@ -204,6 +194,55 @@ class Entity
     }
 
     /**
+     * Update an entity
+     *
+     * @param string $title
+     * @param string $date
+     * @param string $body
+     * @return bool
+     */
+    public function update($title, $date, $body)
+    {
+        $this->populate();
+        // don't update if locked
+        if ($this->entityData['locked']) {
+            return false;
+        }
+
+        $title = Tools::checkTitle($title);
+        $date = Tools::kdate($date);
+        $body = Tools::checkBody($body);
+
+        if ($this->type === 'experiments') {
+            $sql = "UPDATE experiments SET
+                title = :title,
+                date = :date,
+                body = :body
+                WHERE userid = :userid
+                AND id = :id";
+        } else {
+            $sql = "UPDATE items SET
+                title = :title,
+                date = :date,
+                body = :body,
+                userid = :userid
+                WHERE id = :id";
+        }
+
+        $req = $this->pdo->prepare($sql);
+        $req->bindParam(':title', $title);
+        $req->bindParam(':date', $date);
+        $req->bindParam(':body', $body);
+        $req->bindParam(':userid', $this->Users->userid);
+        $req->bindParam(':id', $this->id);
+
+        // add a revision
+        $Revisions = new Revisions($this);
+
+        return $req->execute() && $Revisions->create($body);
+    }
+
+    /**
      * Set a limit for sql read
      *
      * @param int $num
@@ -268,9 +307,10 @@ class Entity
                 $permissions['read'] = true;
                 $permissions['write'] = true;
 
-            // admin can view any experiment
+            // admin can view and write any experiment
             } elseif (($item['userid'] != $this->Users->userid) && $isAdmin) {
                 $permissions['read'] = true;
+                $permissions['write'] = true;
 
             // if we don't own the experiment (and we are not admin), we need to check the visibility
             } elseif (($item['userid'] != $this->Users->userid) && !$isAdmin) {
@@ -309,80 +349,88 @@ class Entity
 
         return $permissions;
     }
-    /**
-     * Update ordering for status, experiment templates or items types
-     *
-     * @param array $post POST
-     * @return bool
-     */
-    public function updateOrdering($post)
-    {
-        $success = array();
 
-        foreach ($post['ordering'] as $ordering => $id) {
-            $id = explode('_', $id);
-            $id = $id[1];
-            // the table param is whitelisted here
-            $sql = "UPDATE " . $post['table'] . " SET ordering = :ordering WHERE id = :id AND team = :team";
-            $req = $this->pdo->prepare($sql);
-            $req->bindParam(':ordering', $ordering, PDO::PARAM_INT);
-            $req->bindParam(':team', $this->Users->userData['team']);
-            $req->bindParam(':id', $id, PDO::PARAM_INT);
-            $success[] = $req->execute();
+    /**
+     * Get a list of experiments with title starting with $term and optional user filter
+     *
+     * @param string $term the query
+     * @param bool $userFilter filter experiments for user or not
+     * @return array
+     */
+    public function getExpList($term, $userFilter = false)
+    {
+        $Experiments = new Experiments($this->Users);
+        $Experiments->titleFilter = " AND title LIKE '%$term%'";
+        if ($userFilter) {
+            $Experiments->setUseridFilter();
         }
 
-        return !in_array(false, $success);
+        return $Experiments->read();
     }
 
     /**
-     * Generate a JS list of DB + XP items to use for links or # autocomplete
+     * Get a list of items with a filter on the $term
      *
-     * @param $format string ask if you want the default list for links, or the one for the mentions
-     * @since 1.1.7 it adds the XP of user
-     * @return string
+     * @param string $term the query
+     * @return array
      */
-    public function getEntityList($format = 'default')
+    public function getDbList($term)
     {
-        $link_list = "";
-        $tinymce_list = "";
+        $Database = new Database($this->Users);
+        $Database->titleFilter = " AND title LIKE '%$term%'";
 
-        $Users = new Users($_SESSION['userid']);
-        $Database = new Database($Users);
-        $itemsArr = $Database->read();
+        return $Database->read();
+    }
+
+    /**
+     * Get an array formatted for the Link list on experiments
+     *
+     * @param string $term the query
+     * @return array
+     */
+    public function getLinkList($term)
+    {
+        $linksArr = array();
+        $itemsArr = $this->getDbList($term);
 
         foreach ($itemsArr as $item) {
-
-            // html_entity_decode is needed to convert the quotes
-            // str_replace to remove ' because it messes everything up
-            $link_name = str_replace(array("'", "\""), "", html_entity_decode(substr($item['title'], 0, 60), ENT_QUOTES));
-            // remove also the % (see issue #62)
-            $link_name = str_replace("%", "", $link_name);
-
-            // now build the list in both formats
-            $link_list .= "'" . $item['id'] . " - " . $item['category'] . " - " . $link_name . "',";
-            $tinymce_list .= "{ name : \"<a href='database.php?mode=view&id=" . $item['id'] . "'>" . $link_name . "</a>\"},";
+            $linksArr[] = $item['id'] . " - " . $item['category'] . " - " . substr($item['title'], 0, 60);
         }
 
-        if ($format === 'default') {
-            return $link_list;
+        return $linksArr;
+    }
+
+    /**
+     * Get an array of a mix of experiments and database items
+     * for use with the mention plugin of tinymce (# and $ autocomplete)
+     *
+     * @param $term the query
+     * @param bool $userFilter filter experiments for user or not
+     * @return array
+     */
+    public function getMentionList($term, $userFilter = false)
+    {
+        $mentionArr = array();
+
+        // add items from database
+        $itemsArr = $this->getDbList($term);
+        foreach ($itemsArr as $item) {
+            $mentionArr[] = array("name" => "<a href='database.php?mode=view&id=" .
+                $item['id'] . "'>" .
+                substr($item['title'], 0, 60) .
+                "</a>");
         }
 
-        // complete the list with experiments (only for tinymce)
+        // complete the list with experiments
         // fix #191
-        $Experiments = new Experiments($Users);
-        if ($format === 'mention-user') {
-            $Experiments->setUseridFilter();
-        }
-        $expArr = $Experiments->read();
-
-        foreach ($expArr as $exp) {
-
-            $link_name = str_replace(array("'", "\""), "", html_entity_decode(substr($exp['title'], 0, 60), ENT_QUOTES));
-            // remove also the % (see issue #62)
-            $link_name = str_replace("%", "", $link_name);
-            $tinymce_list .= "{ name : \"<a href='experiments.php?mode=view&id=" . $exp['id'] . "'>" . $link_name . "</a>\"},";
+        $experimentsArr = $this->getExpList($term, $userFilter);
+        foreach ($experimentsArr as $item) {
+            $mentionArr[] = array("name" => "<a href='experiments.php?mode=view&id=" .
+                $item['id'] . "'>" .
+                substr($item['title'], 0, 60) .
+                "</a>");
         }
 
-        return $tinymce_list;
+        return $mentionArr;
     }
 }

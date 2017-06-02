@@ -123,17 +123,17 @@ foreach ($itemsTypesArr as $items_types) {
             <!-- SEARCH WITH TAG -->
 <?php
 $tagsArr = array();
-if (isset($_GET['tag_exp'])) {
+if (isset($_GET['type']) && $_GET['type'] === 'experiments' && isset($_GET['tag_exp'])) {
     $tagsArr = $_GET['tag_exp'];
 }
-if (isset($_GET['tag_db'])) {
+if (isset($_GET['type']) && $_GET['type'] === 'database' && isset($_GET['tag_db'])) {
     $tagsArr = $_GET['tag_db'];
 }
 
 $Tags = new Tags($Experiments);
-$tag_exp_options = $Tags->generateTagList('options', $tagsArr);
+$tag_exp_options = $Tags->generateTagList($tagsArr);
 $Tags = new Tags($Database);
-$tag_db_options = $Tags->generateTagList('options', $tagsArr);
+$tag_db_options = $Tags->generateTagList($tagsArr);
 ?>
             <div class='col-md-3' id='tag_exp'>
                 <label for='tag_exp'><?php echo _('With the tag'); ?></label>
@@ -290,6 +290,7 @@ if (isset($_GET)) {
     // assign variables from get
 
     $table = 'items';
+    $tagTable = 'items_tags';
     $status = '';
     $rating = '';
     $tags = '';
@@ -297,6 +298,7 @@ if (isset($_GET)) {
     // TABLE
     if (isset($_GET['type']) && $_GET['type'] === 'experiments') {
         $table = 'experiments';
+        $tagTable = 'experiments_tags';
     }
 
     // STATUS
@@ -355,7 +357,8 @@ if (isset($_GET)) {
     if (!empty($tagsArr)) {
         foreach ($tagsArr as $tag) {
             $tag = filter_var($tag, FILTER_SANITIZE_STRING);
-            $sqlTag .= " AND tagt.tag LIKE '%" . $tag . "%' ";
+            $sqlTag .= " AND EXISTS (SELECT 1 FROM " . $tagTable . " tagt WHERE tagt.item_id = " .
+                $table . ".id AND tagt.tag LIKE '%" . $tag . "%') ";
         }
     }
 
@@ -421,8 +424,6 @@ if (isset($_GET)) {
             }
         }
 
-        // adjust display
-        $EntityView->display = $Users->userData['display'];
         // we are on the search page, so we don't want any "click here to create your first..."
         $EntityView->searchType = 'something';
 

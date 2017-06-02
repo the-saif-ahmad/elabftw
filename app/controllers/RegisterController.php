@@ -13,12 +13,17 @@ namespace Elabftw\Elabftw;
 use Exception;
 
 try {
-    require_once '../app/init.inc.php';
+    require_once '../init.inc.php';
 
     $Users = new Users(null, new Config);
 
     // default location to redirect to
-    $location = '../login.php';
+    $location = '../../login.php';
+
+    // check for disabled local register
+    if ($Users->Config->configArr['local_register'] === '0') {
+        throw new Exception('Registration is disabled.');
+    }
 
     // Stop bot registration by checking if the (invisible to humans) bot input is filled
     if (isset($_POST['bot']) && !empty($_POST['bot'])) {
@@ -40,7 +45,7 @@ try {
     }
 
     //Check whether the query was successful or not
-    if (!$Users->create($_POST['email'], $_POST['password'], $_POST['team'], $_POST['firstname'], $_POST['lastname'])) {
+    if (!$Users->create($_POST['email'], $_POST['team'], $_POST['firstname'], $_POST['lastname'], $_POST['password'])) {
         throw new Exception('Failed inserting new account in SQL!');
     }
 
@@ -54,7 +59,7 @@ try {
 
 } catch (Exception $e) {
     $_SESSION['ko'][] = $e->getMessage();
-    $location = '../register.php';
+    $location = '../../register.php';
 
 } finally {
     header("location: $location");

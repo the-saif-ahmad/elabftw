@@ -11,6 +11,7 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Gmagick;
 
 /**
  * All about the file uploads
@@ -69,22 +70,26 @@ class Uploads extends Entity
     /**
      * Called from ImportZip class
      *
-     * @param string $file The string of the local file path stored in .elabftw.json of the zip archive
+     * @param string $filePath absolute path to the file
+     * @param string $comment
      * @return bool
      */
-    public function createFromLocalFile($file)
+    public function createFromLocalFile($filePath, $comment)
     {
-        if (!is_readable($file)) {
-            throw new Exception('No file here!');
+        $realName = basename($filePath);
+        $ext = Tools::getExt($realName);
+
+        // disallow upload of php files
+        if ($ext === 'php') {
+            throw new Exception('PHP files are forbidden!');
         }
 
-        $realName = basename($file);
-        $longName = $this->getCleanName() . "." . Tools::getExt($realName);
-        $fullPath = ELAB_ROOT . 'uploads/' . $longName;
+        $longName = $this->getCleanName() . "." . $ext;
+        $finalPath = ELAB_ROOT . 'uploads/' . $longName;
 
-        $this->moveFile($file, $fullPath);
+        $this->moveFile($filePath, $finalPath);
 
-        return $this->dbInsert($realName, $longName, $this->getHash($fullPath));
+        return $this->dbInsert($realName, $longName, $this->getHash($finalPath), $comment);
     }
 
     /**
@@ -146,6 +151,12 @@ class Uploads extends Entity
      */
     private function moveFile($orig, $dest)
     {
+        // fix for FreeBSD and rename across different filesystems
+        // see http://php.net/manual/en/function.rename.php#117590
+        if (PHP_OS === 'FreeBSD') {
+            return copy($orig, $dest) && unlink($orig);
+        }
+
         if (!rename($orig, $dest)) {
             throw new Exception('Error while moving the file. Check folder permissons!');
         }
@@ -189,11 +200,16 @@ class Uploads extends Entity
      * @param string $realName The clean name of the file
      * @param string $longName The sha512 name
      * @param string $hash The hash string of our file
+     * @param string|null $comment
      * @throws Exception if request fail
      * @return bool
      */
-    private function dbInsert($realName, $longName, $hash)
+    private function dbInsert($realName, $longName, $hash, $comment = null)
     {
+        if (is_null($comment)) {
+            $comment = 'Click to add a comment';
+        }
+
         $sql = "INSERT INTO uploads(
             real_name,
             long_name,
@@ -219,7 +235,7 @@ class Uploads extends Entity
         $req->bindParam(':long_name', $longName);
         // comment can be edited after upload
         // not i18n friendly because it is used somewhere else (not a valid reason, but for the moment that will do)
-        $req->bindValue(':comment', 'Click to add a comment');
+        $req->bindValue(':comment', $comment);
         $req->bindParam(':item_id', $this->Entity->id);
         $req->bindParam(':userid', $this->Entity->Users->userid);
         $req->bindParam(':type', $this->Entity->type);
@@ -282,7 +298,7 @@ class Uploads extends Entity
     }
 
     /**
-     * Create a jpg thumbnail from images of type jpg, png or gif.
+     * Create a jpg thumbnail from images of type jpeg, png, gif, tiff, eps and pdf.
      *
      * @param string $src Path to the original file
      * @param string $dest Path to the place to save the thumbnail
@@ -300,35 +316,45 @@ class Uploads extends Entity
         // get mime type of the file
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime = finfo_file($finfo, $src);
-        // the used fonction is different depending on extension
-        if ($mime === 'image/jpeg') {
-            $sourceImage = imagecreatefromjpeg($src);
-        } elseif ($mime === 'image/png') {
-            $sourceImage = imagecreatefrompng($src);
-        } elseif ($mime === 'image/gif') {
-            $sourceImage = imagecreatefromgif($src);
+
+        if (!extension_loaded('gmagick')) {
+            // we need gmagick for thumb generation
+            return false;
+        }
+
+        // do some sane white-listing; in theory, gmagick handles almost all image formats,
+        // but the processing of rarely // used formats may be less tested/stable or may have security issues;
+        // when adding new mime types take care of
+        // ambiguities: e.g. image/eps may be a valid application/postscript; image/bmp may also be image/x-bmp or
+        // image/x-ms-bmp
+        $allowed_mime = array('image/png',
+                            'image/jpeg',
+                            'image/gif',
+                            'image/tiff',
+                            'image/x-eps',
+                            'image/svg+xml',
+                            'application/pdf',
+                            'application/postscript');
+
+        if (in_array($mime, $allowed_mime)) {
+        // if pdf or postscript, generate thumbnail using the first page (index 0) do the same for postscript files;
+        // sometimes eps images will be identified as application/postscript as well, but thumbnail generation still
+        // works in those cases
+            if ($mime === 'application/pdf' || $mime === 'application/postscript') {
+                $src = $src . '[0]';
+            }
+                $image = new Gmagick($src);
+
         } else {
+
             return false;
         }
-
-        if ($sourceImage === false) {
-            return false;
-        }
-
-        $width = imagesx($sourceImage);
-        $height = imagesy($sourceImage);
-
-        // find the "desired height" of this thumbnail, relative to the desired width
-        $desiredHeight = floor($height * ($desiredWidth / $width));
-
-        // create a new, "virtual" image
-        $virtualImage = imagecreatetruecolor($desiredWidth, $desiredHeight);
-
-        // copy source image at a resized size
-        imagecopyresized($virtualImage, $sourceImage, 0, 0, 0, 0, $desiredWidth, $desiredHeight, $width, $height);
-
-        // create the physical thumbnail image to its destination (85% quality)
-        imagejpeg($virtualImage, $dest, 85);
+          // create thumbnail of width 100px; height is calculated automatically to keep the aspect ratio
+          $image->thumbnailimage(100, 0);
+          // create the physical thumbnail image to its destination (85% quality)
+          $image->setCompressionQuality(85);
+          $image->write($dest);
+          $image->clear();
     }
 
     /**

@@ -1,4 +1,3 @@
-/* CSS Document */
 /**
  * css/main.css
  *
@@ -32,6 +31,10 @@ ffc1b7 => light red
     url('fonts/lato-medium-webfont.svg#webfont') format('svg');
 }
 
+body {
+    min-width: 380px;
+}
+
 /* little shadow on top of the screen for no reasons */
 body:before {
     content: "";
@@ -44,12 +47,6 @@ body:before {
     box-shadow: 0 0 10px rgba(0,0,0,.8);
 }
 
-/* set background image */
-body {
-    background:url(images/bg.png) no-repeat center center fixed;
-    background-size: cover;
-}
-
 /* this is the big white thing that holds everything */
 #container {
     background: #fff;
@@ -59,7 +56,7 @@ body {
 }
 
 #real_container {
-    padding: 10px 5%;
+    padding: 0 5%;
 }
 
 /* LINKS */
@@ -67,6 +64,7 @@ a {
     color: #29AEB9;
     text-decoration:none;
 }
+
 a:hover {
     color:#29AEB9;
     text-decoration:none;
@@ -85,18 +83,9 @@ ul, li {
     padding: 0;
     margin: 0;
 }
+
 .group-list {
     margin: 0;
-}
-
-.tip:before {
-    content: "☺ ";
-    font-size:120%;
-    color: #29AEB9;
-}
-
-.tip::before a, .tip::before a:hover {
-    color: #343434;
 }
 
 li.inline {
@@ -111,7 +100,6 @@ input, select, textarea {
     border-radius: 4px;
     border: 1px #e3e3e3 solid;
     margin:5px 0;
-    line-height: 1;
 }
 .disabled-input{
     color:#989898;
@@ -130,7 +118,7 @@ select{
     padding-right: 31px;
 }
 
-.form-control:focus{
+.form-control:focus, #dropdownMenu1:focus {
     border-color:#29AEB9;
     box-shadow:inset 0 1px 1px rgba(0,0,0,.075),0 0 8px rgba(41,174,185,.6);
 }
@@ -212,53 +200,69 @@ label {
 }
 
 /* HEAD */
+
+/* BEGIN HELP CONTAINER */
+.tip:before {
+    content: "☺ ";
+    font-size:120%;
+    color: #29AEB9;
+}
+.tip::before a, .tip::before a:hover {
+    color: #343434;
+}
 .help-container {
     display:none;
     padding: 5px;
     margin: 15px 0;
 }
-
 #help {
     cursor: pointer;
     color: #797979;
 }
 
-nav {
-    background-color:#343434;
-    line-height: 3;
-}
+/* END HELP CONTAINER /*
 
+/* BEGIN NAV */
+.navbar {
+    background-color:#343434;
+    padding: 0 5%;
+    border-radius: 0;
+    border: 0;
+    margin-bottom: 5px;
+}
+.navbar-brand {
+    padding: 5px 5px 5px 0;
+}
 nav a {
     font-size:90%;
     text-transform:uppercase;
-    padding-bottom:10px;
-    margin:1%;
     color: #888;
     text-decoration: none;
 }
-
-#logonav {
-    font-size:130%;
-    color:white;
-    margin-left: 5%;
-}
-
-nav a.selected {
-    border-bottom:6px #29AEB9 solid;
-    color:white;
-}
-
+/* blue on hover */
 nav a:hover {
-    color:#29AEB9;
+    color:#29AEB9 !important;
     transition-duration: 500ms;
+}
+/* we want the border bottom to be same width as the text */
+ul.nav li a {
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: 15px;
+    margin-right: 15px;
+}
+/* selected nav entry */
+ul.nav li.active a {
+    border-bottom:6px #29AEB9 solid;
+    background-color:#343434 !important;
+    color: white !important;
 }
 
 /* search bar in head.php ; nav */
 #big_search {
-    width:25%;
-    float:right;
-    margin-right: 5%;
+    width:30%;
     text-align:right;
+    margin-right: -45px;
 }
 #big_search input {
     background:#555 url(images/search.png) no-repeat scroll right 10px center;
@@ -266,13 +270,14 @@ nav a:hover {
     border-radius: 20px;
     width:50%;
     height:2em;
-    margin: 13px 0 0 0;
     color: white;
     transition:width 1s;
 }
 #big_search input:focus {
     width:100%;
 }
+
+/* END NAV */
 
 /*  MENU is below main nav */
 menu {
@@ -295,7 +300,8 @@ menu ul li.selected {
     border-bottom:5px #29AEB9 solid;
     padding-bottom:0;
 }
-/* USER PROFIL */
+
+/* USER MENU (settings, help, logout) */
 .user-nav {
     text-align: right;
 }
@@ -365,7 +371,6 @@ a.elab-tooltip:hover span{
     text-align: center;
     white-space: nowrap;
 }
-
 a.elab-tooltip span:after {
     bottom: 100%;
     left: 50%;
@@ -429,7 +434,6 @@ a.elab-tooltip-top span:after {
 section.item {
     overflow:visible;
 }
-/* TAG Design */
 
 /* BADGE */
 .badge {
@@ -647,17 +651,12 @@ tr:nth-child(odd) {
 }
 /* END OVERLAY */
 
-/* save and go back button */
-#saveButton {
-    margin:20px 0;
-    text-align:right;
-}
-
 /* ITEMS */
 .item {
+    min-width: 100%;
     border:  1px solid #dcdddc;
     border-radius: 5px;
-    margin: 10px auto;
+    margin: 5px auto;
     padding: 5px 10px 10px 5px;
     overflow:hidden;
 }
@@ -783,6 +782,17 @@ input[type='checkbox']{
     border-color:#017079;
 }
 
+/* fix the white space when columned items don't have the same height */
+/* see https://medium.com/wdstack/varying-column-heights-in-bootstrap-4e8dd5338643 */
+.row.display-flex {
+    display: flex;
+    flex-wrap: wrap;
+}
+.row.display-flex > [class*='col-'] {
+    display: flex;
+    flex-direction: column;
+}
+
 /* fix for bootstrap's thumbnail class */
 .thumbnail {
     overflow:hidden;
@@ -862,11 +872,6 @@ input[type='checkbox']{
     padding: 0 5px;
 }
 
-.compact {
-    margin: 0 0 5px 0;
-    padding: 1px;
-}
-
 .tags {
     line-height: 150%;
     margin-bottom: 10px;
@@ -896,7 +901,6 @@ input[type='checkbox']{
     display:block;
     color:#a2a2a2;
     font-size: 80%;
-    margin: -15px 0 20px;
 }
 /* ucp.php */
 
@@ -1057,6 +1061,9 @@ code {
 }
 
 /* doodle canvas */
+h3.togglable-next {
+    display: inline;
+}
 .doodle {
     border: 1px solid #dcdddc;
     border-radius: 5px;
@@ -1070,4 +1077,8 @@ code {
 
 .bodyToggle {
     display: none;
+}
+
+.itemsTypesEditor {
+    margin-top:10px;
 }

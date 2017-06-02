@@ -19,16 +19,16 @@ use Exception;
 try {
     require_once 'app/init.inc.php';
     $pageTitle = _('Login');
-    $selectedMenu = null;
-    require_once 'app/head.inc.php';
-
     // Check if already logged in
     if (isset($_SESSION['auth']) && $_SESSION['auth'] === 1) {
         header('Location: experiments.php');
         throw new Exception('Already logged in');
     }
 
+    require_once 'app/head.inc.php';
+
     $Config = new Config();
+    $Idps = new Idps();
     $FormKey = new FormKey();
     $BannedUsers = new BannedUsers($Config);
 
@@ -36,7 +36,8 @@ try {
     if (!Tools::usingSsl()) {
         // get the url to display a link to click (without the port)
         $url = 'https://' . $_SERVER['SERVER_NAME'] . $_SERVER['PHP_SELF'];
-        $message = "eLabFTW works only in HTTPS. Please enable HTTPS on your server. Or click this link : <a href='$url'>$url</a>";
+        $message = "eLabFTW works only in HTTPS. Please enable HTTPS on your server. Or click this link : <a href='" .
+            $url . "'>$url</a>";
         throw new Exception($message);
     }
 
@@ -48,7 +49,8 @@ try {
     // show message if there is a failed_attempt
     if (isset($_SESSION['failed_attempt']) && $_SESSION['failed_attempt'] < $Config->configArr['login_tries']) {
         $number_of_tries_left = $Config->configArr['login_tries'] - $_SESSION['failed_attempt'];
-        $message = _('Number of login attempt left before being banned for') . ' ' . $Config->configArr['ban_time'] . ' ' . _('minutes:') . ' ' . $number_of_tries_left;
+        $message = _('Number of login attempt left before being banned for') . ' ' .
+            $Config->configArr['ban_time'] . ' ' . _('minutes:') . ' ' . $number_of_tries_left;
         echo Tools::displayMessage($message, 'ko');
     }
 
@@ -63,11 +65,22 @@ try {
         throw new Exception(_('You cannot login now because of too many failed login attempts.'));
     }
 
+    // don't show the local login form if it's disabled
+    $showLocal = true;
+    // if there is a ?letmein in the url, we still show it.
+    if (!$Config->configArr['local_login'] && !isset($_GET['letmein'])) {
+        $showLocal = false;
+    }
+
+    $idpsArr = $Idps->readAll();
+
     echo $twig->render('login.html', array(
         'BannedUsers' => $BannedUsers,
         'Config' => $Config,
         'FormKey' => $FormKey,
-        'SESSION' => $_SESSION
+        'SESSION' => $_SESSION,
+        'idpsArr' => $idpsArr,
+        'showLocal' => $showLocal
     ));
 
 } catch (Exception $e) {

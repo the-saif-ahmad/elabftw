@@ -1,4 +1,4 @@
-<script src="app/js/edit.mode.min.js"></script>
+<script src="app/js/tinymce-dropzone.min.js"></script>
 
 <menu>
     <ul>
@@ -20,7 +20,7 @@
             <select id='lang' name='lang'>
             {% for lang, text in langsArr %}
                 <option value='{{ lang }}'
-                  {{ Users.userData['lang'] == lang ? ' selected' }}
+                  {{ Users.userData.lang == lang ? ' selected' }}
                   >{{ text }}</option>
             {% endfor %}
             </select>
@@ -31,21 +31,9 @@
 
             <h3>{{ 'Display'|trans }}</h3>
             <hr>
-            <p>Note: this setting cannot be changed on the demo.<br>
-            <input id='radio_view_default' type='radio' name='display' value='default'
-          {{ Users.userData['display'] == 'default' ? " checked" }}
-             />
-            <label for='radio_view_default'>{{ 'Default'|trans }}</label>
-
-            <input id='radio_view_compact' type='radio' name='display' value='compact'
-          {{ Users.userData['display'] == 'compact' ? " checked" }}
-             />
-            <label for='radio_view_compact'>{{ 'Compact'|trans }}</label>
-            </p>
-
-            <p style='margin-top:20px;'>
+            <p>
             <label for='limit'>{{ 'Items per page:'|trans }}</label>
-            <input id='limit' type='text' size='2' maxlength='2' value='{{ Users.userData['limit_nb'] }}' name='limit'>
+            <input id='limit' type='text' size='2' maxlength='2' value='{{ Users.userData.limit_nb }}' name='limit'>
             </p>
         </section>
 
@@ -59,19 +47,19 @@
                     <th>{{ 'Shortcut'|trans }}</th></tr>
 
                 <tr><td>{{ 'Create'|trans }}</td><td>
-                    <input type='text' pattern='[a-z]' size='1' maxlength='1' value='{{ Users.userData['sc_create'] }}' name='sc_create' />
+                    <input type='text' pattern='[a-z]' size='1' maxlength='1' value='{{ Users.userData.sc_create }}' name='sc_create' />
                     </td></tr>
 
                     <tr><td>{{ 'Edit'|trans }}</td><td>
-                    <input type='text' pattern='[a-z]' size='1' maxlength='1' value='{{ Users.userData['sc_edit'] }}' name='sc_edit' />
+                    <input type='text' pattern='[a-z]' size='1' maxlength='1' value='{{ Users.userData.sc_edit }}' name='sc_edit' />
                     </td></tr>
 
                     <tr><td>{{ 'Submit'|trans }}</td><td>
-                    <input type='text' pattern='[a-z]' size='1' maxlength='1' value='{{ Users.userData['sc_submit'] }}' name='sc_submit' />
+                    <input type='text' pattern='[a-z]' size='1' maxlength='1' value='{{ Users.userData.sc_submit }}' name='sc_submit' />
                     </td></tr>
 
                     <tr><td>{{ 'TODO list'|trans }}</td><td>
-                    <input type='text' pattern='[a-z]' size='1' maxlength='1' value='{{ Users.userData['sc_todo'] }}' name='sc_todo' />
+                    <input type='text' pattern='[a-z]' size='1' maxlength='1' value='{{ Users.userData.sc_todo }}' name='sc_todo' />
                     </td></tr>
                 </table>
             </p>
@@ -82,37 +70,37 @@
             <hr>
             <p>
             <input id='show_team' type='checkbox' name='show_team'
-              {{ Users.userData['show_team'] == '1' ? " checked='checked'" }}
+              {{ Users.userData.show_team == '1' ? " checked='checked'" }}
             />
             <label for='show_team'>{{ 'Show experiments from the team on the Experiments page?'|trans }}</label>
             <br>
             <input id='close_warning' type='checkbox' name='close_warning'
-              {{ Users.userData['close_warning'] == '1' ? " checked='checked'" }}
+              {{ Users.userData.close_warning == '1' ? " checked='checked'" }}
             />
             <label for='close_warning'>{{ 'Display a warning before closing an edit window/tab?'|trans }}</label>
             <br>
             <input id='chem_editor' type='checkbox' name='chem_editor'
-              {{ Users.userData['chem_editor'] == '1' ? " checked='checked'" }}
+              {{ Users.userData.chem_editor == '1' ? " checked='checked'" }}
             />
             <label for='chem_editor'>{{ 'Display the molecule drawer in edit mode?'|trans }}</label>
             </p>
             <br>
             <p>
-            <label for 'default_vis'>{{ 'Default visibility for new experiments'|trans }}</label>
+            <label for='default_vis'>{{ 'Default visibility for new experiments'|trans }}</label>
             <select name='default_vis'>
                 <option value='organization'
-                  {{ Users.userData['default_vis'] == 'organization' ? " selected='selected'" }}
+                  {{ Users.userData.default_vis == 'organization' ? " selected='selected'" }}
                 >{{ 'Organization'|trans }}</option>
                 <option value='team'
-                  {{ Users.userData['default_vis'] == 'team' ? " selected='selected'" }}
+                  {{ Users.userData.default_vis == 'team' ? " selected='selected'" }}
                 >{{ 'Team'|trans }}</option>
                 <option value='user'
-                  {{ Users.userData['default_vis'] == 'user' ? " selected='selected'" }}
+                  {{ Users.userData.default_vis == 'user' ? " selected='selected'" }}
                 >{{ 'User'|trans }}</option>
                 {% for teamGroup in teamGroupsArr %}
-                    <option value='{{ teamGroup['id'] }}'
-                      {{ teamGroup['id'] == Users.userData['default_vis'] ? " selected='selected'" }}
-                    >{{ 'Group'|trans }} - {{ teamGroup['name'] }}
+                    <option value='{{ teamGroup.id }}'
+                      {{ teamGroup.id == Users.userData.default_vis ? " selected='selected'" }}
+                    >{{ 'Group'|trans }} - {{ teamGroup.name }}
                     </option>
                 {% endfor %}
             </select>
@@ -154,18 +142,18 @@
         <div class='row'>
             <div class='col-md-6'>
                 <label class='block' for='firstname'>{{ 'Firstname'|trans }}</label>
-                <input name="firstname" value='{{ Users.userData['firstname'] }}' cols='20' rows='1' />
+                <input name="firstname" value='{{ Users.userData.firstname }}' cols='20' rows='1' />
             </div>
         </div>
 
         <div class='row'>
             <div class='col-md-6'>
                 <label class='block' for='lastname'>{{ 'Lastname'|trans }}</label>
-                <input name="lastname" value='{{ Users.userData['lastname'] }}' cols='20' rows='1' />
+                <input name="lastname" value='{{ Users.userData.lastname }}' cols='20' rows='1' />
             </div>
             <div class='col-md-6'>
                 <label class='block' for='email'>{{ 'Email'|trans }}</label>
-                <input name="email" type="email" value='{{ Users.userData['email'] }}' cols='20' rows='1' />
+                <input name="email" type="email" value='{{ Users.userData.email }}' cols='20' rows='1' />
             </div>
         </div>
 
@@ -174,30 +162,30 @@
         <div class='row'>
             <div class='col-md-6'>
                 <label class='block' for='phone'>{{ 'Phone'|trans }} </label>
-                <input name="phone" value='{{ Users.userData['phone'] }}' cols='20' rows='1' />
+                <input name="phone" value='{{ Users.userData.phone }}' cols='20' rows='1' />
             </div>
             <div class='col-md-6'>
                 <label class='block' for='cellphone'>{{ 'Mobile'|trans }}</label>
-                <input name="cellphone" value='{{ Users.userData['cellphone'] }}' cols='20' rows='1' />
+                <input name="cellphone" value='{{ Users.userData.cellphone }}' cols='20' rows='1' />
             </div>
         </div>
         <div class='row'>
             <div class='col-md-6'>
                 <label class='block' for='skype'>{{ 'Skype'|trans }}</label>
-                <input name="skype" value='{{ Users.userData['skype'] }}' cols='20' rows='1' />
+                <input name="skype" value='{{ Users.userData.skype }}' cols='20' rows='1' />
             </div>
             <div class='col-md-6'>
                 <label class='block' for='website'>{{ 'Website'|trans }}</label>
-                <input name="website" type="url" value='{{ Users.userData['website'] }}' cols='20' rows='1' />
+                <input name="website" type="url" value='{{ Users.userData.website }}' cols='20' rows='1' />
             </div>
         </div>
 
-    </div>
         <div class='submitButtonDiv'>
             <button type="submit" name="Submit" class='button'>{{ 'Update profile'|trans }}</button>
         </div>
     </form>
 
+</div>
 </div>
 <!-- TAB 3 - USER TEMPLATES -->
 <div class='divhandle' id='tab3div'>
@@ -205,15 +193,15 @@
 <div class='box new-tpl-box'>
     <h3>{{ 'Experiments Templates'|trans }}</h3>
     <ul class='nav nav-pills' role='tablist'>
-        <li class='subtabhandle badge badgetab badgetabactive' id='subtab_1'>{{ 'Create New'|trans }}</li>
+        <li class='subtabhandle clickable badge badgetab badgetabactive' id='subtab_1'>{{ 'Create New'|trans }}</li>
         {% for template in templatesArr %}
-            <li class='sortable subtabhandle badge badgetab' id='subtab_{{ template['id'] }}'>{{ template['name'] }}</li>
+            <li class='sortable subtabhandle clickable badge badgetab' id='subtab_{{ template.id }}'>{{ template.name }}</li>
         {% endfor %}
     </ul>
 
     <!-- CREATE NEW TPL TAB -->
     <div class='subdivhandle' id='subtab_1div'>
-    <p onClick="$('#import_tpl').toggle()" style='cursor:pointer'><img src='app/img/add.png' title='import template' alt='import' />{{ 'Import from File'|trans }}</p>
+    <p id='import-from-file' style='cursor:pointer'><img src='app/img/add.png' title='import template' alt='import' />{{ 'Import from File'|trans }}</p>
         <form action='app/controllers/UcpController.php' method='post'>
             <input type='hidden' name='new_tpl_form' />
             <input type='file' accept='.tpl' id='import_tpl'>
@@ -228,15 +216,15 @@
     </div>
 
     {% for template in templatesArr %}
-        <div class='subdivhandle' id='subtab_{{ template['id'] }}div'>
-            <img class='align_right' src='app/img/download.png' title='Export Template' alt='Export' onClick="exportTpl('{{ template['name'] }}', '{{ template['id'] }}')" />
-            <img class='align_right' src='app/img/small-trash.png' title='Delete' alt='Delete' onClick="templatesDestroy({{ template['id'] }})" />
+        <div class='subdivhandle' id='subtab_{{ template.id }}div'>
+            <img class='align_right save-to-file' src='app/img/download.png' title='Export Template' alt='Export' data-name='{{ template.name }}' data-id='e{{ template.id }}' />
+            <img class='align_right destroy-template' src='app/img/small-trash.png' title='Delete' alt='Delete' data-id='{{ template.id }}' />
             <form action='app/controllers/UcpController.php' method='post'>
                 <input type='hidden' name='tpl_form' />
-                <input type='hidden' name='tpl_id[]' value='{{ template['id'] }}' />
-                <input name='tpl_name[]' value='{{ template['name'] }}' style='width:90%' /><br />
+                <input type='hidden' name='tpl_id[]' value='{{ template.id }}' />
+                <input name='tpl_name[]' value='{{ template.name }}' style='width:90%' /><br />
                 {# the id begins with an 'e' because of this https://github.com/tinymce/tinymce/issues/3011#issuecomment-227993762 #}
-                <textarea id='e{{ template['id'] }}' name='tpl_body[]' class='mceditable' style='height:500px;'>{{ template['body'] }}</textarea><br />
+                <textarea id='e{{ template.id }}' name='tpl_body[]' class='mceditable' style='height:500px;'>{{ template.body }}</textarea><br />
                 <div class='center'>
                     <button type='submit' name='Submit' class='button'>{{ 'Edit template'|trans }}</button>
                 </div>
@@ -249,98 +237,6 @@
 
 <!-- to export templates -->
 <script src='app/js/file-saver.min.js'></script>
-<script>
-// READY ? GO !!
-$(document).ready(function() {
-
-    // hide the file input
-    $('#import_tpl').hide();
-    $('#import_tpl').on('change', function(e){
-        var title = document.getElementById('import_tpl').value.replace(".elabftw.tpl", "");
-        readFile(this.files[0], function(e) {
-            tinyMCE.get('new_tpl_txt').setContent(e.target.result);
-            $('#new_tpl_name').val(title);
-            $('#import_tpl').hide();
-        });
-    });
-
-    $('.nav-pills').sortable({
-        // limit to horizontal dragging
-        axis : 'x',
-        helper : 'clone',
-        // we don't want the Create new pill to be sortable
-        cancel: "#subtab_1",
-        // do ajax request to update db with new order
-        update: function(event, ui) {
-            // send the orders as an array
-            var ordering = $(".nav-pills").sortable("toArray");
-
-            $.post("app/controllers/AdminController.php", {
-                'updateOrdering': true,
-                'table': 'experiments_templates',
-                'ordering': ordering
-            }).done(function(data) {
-                var json = JSON.parse(data);
-                if (json.res) {
-                    notif(json.msg, 'ok');
-                } else {
-                    notif(json.msg, 'ko');
-                }
-            });
-        }
-    });
-
-    // TABS
-    // get the tab=X parameter in the url
-    var params = getGetParameters();
-    var tab = parseInt(params['tab']);
-    if (!isInt(tab)) {
-        var tab = 1;
-    }
-    var initdiv = '#tab' + tab + 'div';
-    var inittab = '#tab' + tab;
-    // init
-    $(".divhandle").hide();
-    $(initdiv).show();
-    $(inittab).addClass('selected');
-
-    $(".tabhandle" ).click(function(event) {
-        var tabhandle = '#' + event.target.id;
-        var divhandle = '#' + event.target.id + 'div';
-        $(".divhandle").hide();
-        $(divhandle).show();
-        $(".tabhandle").removeClass('selected');
-        $(tabhandle).addClass('selected');
-    });
-    // END TABS
-    // SUB TABS
-    var tab = 1;
-    var initdiv = '#subtab_' + tab + 'div';
-    var inittab = '#subtab_' + tab;
-    // init
-    $(".subdivhandle").hide();
-    $(initdiv).show();
-    $(inittab).addClass('selected');
-
-    $(".subtabhandle" ).click(function(event) {
-        var tabhandle = '#' + event.target.id;
-        var divhandle = '#' + event.target.id + 'div';
-        $(".subdivhandle").hide();
-        $(divhandle).show();
-        $(".subtabhandle").removeClass('badgetabactive');
-        $(tabhandle).addClass('badgetabactive');
-    });
-    // END SUB TABS
-
-    // TinyMCE
-    tinymce.init({
-        mode : "specific_textareas",
-        editor_selector : "mceditable",
-        content_css : "app/css/tinymce.css",
-        plugins : "table textcolor searchreplace code lists advlist fullscreen insertdatetime paste charmap save image link",
-        toolbar1: "undo redo | bold italic underline | fontsizeselect | alignleft aligncenter alignright alignjustify | superscript subscript | bullist numlist outdent indent | forecolor backcolor | charmap | link",
-        removed_menuitems : "newdocument",
-        language : '{{ Users.userData['lang'] }}'
-    });
-});
-</script>
+<script src='app/js/tabs.min.js'></script>
+<div id='language' data-lang='{{ Users.userData.lang }}'></div>
+<script src='app/js/ucp.min.js'></script>

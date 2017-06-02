@@ -70,7 +70,7 @@ INSERT INTO `config` (`conf_name`, `conf_value`) VALUES
 ('mail_from', 'phpunit@mailgun.org'),
 ('mail_method', 'smtp'),
 ('proxy', ''),
-('schema', '18'),
+('schema', '22'),
 ('sendmail_path', '/usr/sbin/sendmail'),
 ('smtp_address', 'smtp.mailgun.org'),
 ('smtp_encryption', 'tls'),
@@ -82,7 +82,21 @@ INSERT INTO `config` (`conf_name`, `conf_value`) VALUES
 ('stamplogin', ''),
 ('stamppass', ''),
 ('stampprovider', 'http://zeitstempel.dfn.de/'),
-('stampshare', '1');
+('stampshare', '1'),
+('saml_debug', '0'),
+('saml_strict', '1'),
+('saml_baseurl', NULL),
+('saml_entityid', NULL),
+('saml_acs_url', NULL),
+('saml_acs_binding', NULL),
+('saml_slo_url', NULL),
+('saml_slo_binding', NULL),
+('saml_nameidformat', NULL),
+('saml_x509', NULL),
+('saml_privatekey', NULL),
+('saml_team', NULL),
+('local_login', '1'),
+('local_register', '1');
 
 -- --------------------------------------------------------
 
@@ -108,6 +122,21 @@ CREATE TABLE `experiments` (
   `timestampedwhen` timestamp NULL DEFAULT NULL,
   `visibility` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
   `datetime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Table structure for table `idps`
+--
+
+CREATE TABLE `idps` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `entityid` varchar(255) NOT NULL,
+  `sso_url` varchar(255) NOT NULL,
+  `sso_binding` varchar(255) NOT NULL,
+  `slo_url` varchar(255) NOT NULL,
+  `slo_binding` varchar(255) NOT NULL,
+  `x509` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
@@ -338,6 +367,7 @@ CREATE TABLE `status` (
   `team` int(10) UNSIGNED NOT NULL,
   `name` text NOT NULL,
   `color` varchar(6) NOT NULL,
+  `is_timestampable` tinyint(1) NOT NULL DEFAULT 1,
   `is_default` tinyint(1) DEFAULT NULL,
   `ordering` int(10) UNSIGNED DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -346,11 +376,11 @@ CREATE TABLE `status` (
 -- Dumping data for table `status`
 --
 
-INSERT INTO `status` (`id`, `team`, `name`, `color`, `is_default`, `ordering`) VALUES
-(1, 1, 'Running', '0096ff', 1, NULL),
-(2, 1, 'Success', '00ac00', 0, NULL),
-(3, 1, 'Need to be redone', 'c0c0c0', 0, NULL),
-(4, 1, 'Fail', 'ff0000', 0, NULL);
+INSERT INTO `status` (`id`, `team`, `name`, `color`, `is_timestampable`, `is_default`, `ordering`) VALUES
+(1, 1, 'Running', '0096ff', 0, 1, NULL),
+(2, 1, 'Success', '00ac00', 1, 0, NULL),
+(3, 1, 'Need to be redone', 'c0c0c0', 1, 0, NULL),
+(4, 1, 'Fail', 'ff0000', 1, 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -448,7 +478,6 @@ CREATE TABLE `users` (
   `can_lock` int(1) NOT NULL DEFAULT '0',
   `register_date` bigint(20) UNSIGNED NOT NULL,
   `token` varchar(255) DEFAULT NULL,
-  `display` varchar(10) NOT NULL DEFAULT 'default',
   `limit_nb` tinyint(255) NOT NULL DEFAULT '15',
   `sc_create` varchar(1) NOT NULL DEFAULT 'c',
   `sc_edit` varchar(1) NOT NULL DEFAULT 'e',
@@ -467,8 +496,8 @@ CREATE TABLE `users` (
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`userid`, `salt`, `password`, `team`, `usergroup`, `firstname`, `lastname`, `email`, `phone`, `cellphone`, `skype`, `website`, `can_lock`, `register_date`, `token`, `display`, `limit_nb`, `sc_create`, `sc_edit`, `sc_submit`, `sc_todo`, `close_warning`, `chem_editor`, `validated`, `lang`) VALUES
-(1, 'f84cf883e2c79fd8beceacf17d0b6e9fe98083e49e5f3cf949e30efa14e08a08b9b1b1e1a2e26dfbb7efd6158ffc6f405ed4669626a784ae8d76a8ec7bcf3f1d', 'a3120de3fbce90abd63c2a8ec81ebfe4e00849c56a89e1d3d196290a4b88ed81e8829e79fe50ceae05f52d6422485d29dda2d88b4932dca7bfb8efb7cbdb3745', 1, 1, 'Php', 'UNIT', 'phpunit@yopmail.com', NULL, NULL, NULL, NULL, 0, 1469733882, '8873f66dfae374a3cce82f91621689cf', 'default', 15, 'c', 'e', 's', 't', 0, 0, 1, 'en_GB');
+INSERT INTO `users` (`userid`, `salt`, `password`, `team`, `usergroup`, `firstname`, `lastname`, `email`, `phone`, `cellphone`, `skype`, `website`, `can_lock`, `register_date`, `token`, `limit_nb`, `sc_create`, `sc_edit`, `sc_submit`, `sc_todo`, `close_warning`, `chem_editor`, `validated`, `lang`) VALUES
+(1, 'f84cf883e2c79fd8beceacf17d0b6e9fe98083e49e5f3cf949e30efa14e08a08b9b1b1e1a2e26dfbb7efd6158ffc6f405ed4669626a784ae8d76a8ec7bcf3f1d', 'a3120de3fbce90abd63c2a8ec81ebfe4e00849c56a89e1d3d196290a4b88ed81e8829e79fe50ceae05f52d6422485d29dda2d88b4932dca7bfb8efb7cbdb3745', 1, 1, 'Php', 'UNIT', 'phpunit@yopmail.com', NULL, NULL, NULL, NULL, 0, 1469733882, '8873f66dfae374a3cce82f91621689cf', 15, 'c', 'e', 's', 't', 0, 0, 1, 'en_GB');
 
 -- --------------------------------------------------------
 
@@ -604,6 +633,12 @@ ALTER TABLE `uploads`
 --
 ALTER TABLE `users`
   ADD PRIMARY KEY (`userid`);
+
+--
+-- Indexes for table `idps`
+--
+ALTER TABLE `idps`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- AUTO_INCREMENT for dumped tables

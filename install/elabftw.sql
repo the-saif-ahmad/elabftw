@@ -230,6 +230,7 @@ CREATE TABLE `status` (
   `team` int(10) unsigned NOT NULL,
   `name` text NOT NULL,
   `color` varchar(6) NOT NULL,
+  `is_timestampable` tinyint(1) NOT NULL DEFAULT 1,
   `is_default` tinyint(1) DEFAULT NULL,
   `ordering` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`)
@@ -295,7 +296,6 @@ CREATE TABLE `users` (
   `can_lock` int(1) NOT NULL DEFAULT '0',
   `register_date` bigint(20) unsigned NOT NULL,
   `token` varchar(255) DEFAULT NULL,
-  `display` varchar(10) NOT NULL DEFAULT 'default',
   `limit_nb` tinyint(255) NOT NULL DEFAULT '15',
   `sc_create` varchar(1) NOT NULL DEFAULT 'c',
   `sc_edit` varchar(1) NOT NULL DEFAULT 'e',
@@ -366,6 +366,23 @@ CREATE TABLE IF NOT EXISTS `todolist` (
   `userid` int(10) UNSIGNED NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+--
+-- idps
+--
+CREATE TABLE IF NOT EXISTS `idps` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) NOT NULL,
+  `entityid` VARCHAR(255) NOT NULL,
+  `sso_url` VARCHAR(255) NOT NULL,
+  `sso_binding` VARCHAR(255) NOT NULL,
+  `slo_url` VARCHAR(255) NOT NULL,
+  `slo_binding` VARCHAR(255) NOT NULL,
+  `x509` text NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 -- --------------------------------------------------------
 
 
@@ -375,11 +392,11 @@ INSERT INTO `items_types` (`team`, `id`, `name`, `color`, `template`) VALUES
 (1, 1, 'Edit me', '32a100', '<p>Go to the admin panel to edit/add more items types!</p>');
 
 /* the default status */
-INSERT INTO `status` (`team`, `id`, `name`, `color`, `is_default`) VALUES
-(1, 1, 'Running', '29AEB9', 1),
-(1, 2, 'Success', '54aa08', 0),
-(1, 3, 'Need to be redone', 'c0c0c0', 0),
-(1, 4, 'Fail', 'c24f3d', 0);
+INSERT INTO `status` (`team`, `id`, `name`, `color`, `is_timestampable`, `is_default`) VALUES
+(1, 1, 'Running', '29AEB9', 0, 1),
+(1, 2, 'Success', '54aa08', 1, 0),
+(1, 3, 'Need to be redone', 'c0c0c0', 1, 0),
+(1, 4, 'Fail', 'c24f3d', 1, 0);
 
 /* the default experiment template */
 INSERT INTO `experiments_templates` (`team`, `body`, `name`, `userid`) VALUES
@@ -419,4 +436,18 @@ INSERT INTO `config` (`conf_name`, `conf_value`) VALUES
 ('stampprovider', 'http://zeitstempel.dfn.de/'),
 ('stampcert', 'app/dfn-cert/pki.dfn.pem'),
 ('stamphash', 'sha256'),
-('schema', '18');
+('saml_debug', '0'),
+('saml_strict', '1'),
+('saml_baseurl', NULL),
+('saml_entityid', NULL),
+('saml_acs_url', NULL),
+('saml_acs_binding', NULL),
+('saml_slo_url', NULL),
+('saml_slo_binding', NULL),
+('saml_nameidformat', NULL),
+('saml_x509', NULL),
+('saml_privatekey', NULL),
+('saml_team', NULL),
+('local_login', '1'),
+('local_register', '1'),
+('schema', '22');

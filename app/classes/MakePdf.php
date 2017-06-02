@@ -20,6 +20,7 @@ class MakePdf extends Make
 {
     /** our favorite pdo object */
     protected $pdo;
+
     /** Entity instance */
     private $Entity;
 
@@ -31,15 +32,19 @@ class MakePdf extends Make
 
     /** a sha512 sum */
     public $fileName;
+
     /** full path of file */
     public $filePath;
 
     /** who */
     public $author;
+
     /** raw title */
     public $title;
+
     /** list of tags */
-    public $tags;
+    public $tags = '';
+
     /** the whole html string to write */
     public $content;
 
@@ -49,8 +54,9 @@ class MakePdf extends Make
      *
      * @param Entity $entity Experiments or Database
      * @param bool|null $toFile Do we want to write it to a file ?
+     * @param bool $timestamp Is it a timestamp pdf we are doing ? If yes save it in normal path, not tmp
      */
-    public function __construct(Entity $entity, $toFile = false)
+    public function __construct(Entity $entity, $toFile = false, $timestamp = false)
     {
         $this->pdo = Db::getConnection();
         $this->Entity = $entity;
@@ -84,12 +90,17 @@ class MakePdf extends Make
         $mpdf->SetKeywords($this->tags);
         $mpdf->SetCreator('www.elabftw.net');
         $mpdf->WriteHTML($this->content);
-        $mpdf->PDFA= true;
+        $mpdf->PDFA = true;
 
         // output
         if ($toFile) {
             $this->fileName = $this->getFileName() . '.pdf';
-            $this->filePath = $this->getFilePath($this->fileName);
+
+            if ($timestamp) {
+                $this->filePath = $this->getFilePath($this->fileName, false);
+            } else {
+                $this->filePath = $this->getFilePath($this->fileName, true);
+            }
             $mpdf->Output($this->filePath, 'F');
         } else {
             $mpdf->Output($this->getCleanName(), 'I');
@@ -140,11 +151,11 @@ class MakePdf extends Make
         $req = $this->pdo->prepare($sql);
         $req->bindParam(':item_id', $this->Entity->id);
         $req->execute();
-        $this->tags = null;
-        while ($data = $req->fetch()) {
-            $this->tags .= $data['tag'] . ' ';
+        if ($req->rowCount() > 0) {
+            while ($data = $req->fetch()) {
+                $this->tags .= $data['tag'] . ' ';
+            }
         }
-        $req->closeCursor();
     }
 
     /**
@@ -181,34 +192,26 @@ class MakePdf extends Make
      */
     private function addComments()
     {
-        // check if there is something to display first
-        // get all comments, and infos on the commenter associated with this experiment
-        $sql = "SELECT * FROM experiments_comments
-            LEFT JOIN users ON (experiments_comments.userid = users.userid)
-            WHERE exp_id = :id
-            ORDER BY experiments_comments.datetime DESC";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':id', $this->Entity->id);
-        $req->execute();
-        // if we have comments
-        if ($req->rowCount() > 0) {
-            $this->content .= "<section>";
-            if ($req->rowCount() === 1) {
-                $this->content .= "<h3>Comment :</h3>";
-            } else {
-                $this->content .= "<h3>Comments :</h3>";
-            }
-            // there is comments to display
-            while ($comments = $req->fetch()) {
-                if (empty($comments['firstname'])) {
-                    $comments['firstname'] = '[deleted]';
-                }
-                $this->content .= "<p>On " . $comments['datetime'] . " " . $comments['firstname'] . " " . $comments['lastname'] . " wrote :<br />";
-                $this->content .= "<p>" . $comments['comment'] . "</p>";
-
-            }
-            $this->content .= "</section>";
+        $Comments = new Comments($this->Entity);
+        // will return false if empty
+        $commentsArr = $Comments->read();
+        if ($commentsArr === false) {
+            return true;
         }
+        $this->content .= "<section class='no-break'>";
+
+        if (count($commentsArr) === 1) {
+            $this->content .= "<h3>Comment:</h3>";
+        } else {
+            $this->content .= "<h3>Comments:</h3>";
+        }
+
+        foreach ($commentsArr as $comment) {
+            $this->content .= "<p class='pdf-ul'>On " . $comment['datetime'] . " " . $comment['fullname'] . " wrote :<br />";
+            $this->content .= $comment['comment'] . "</p>";
+        }
+
+        $this->content .= "</section>";
     }
 
     /**
@@ -225,57 +228,39 @@ class MakePdf extends Make
      */
     private function addAttachedFiles()
     {
-        // SQL to get attached files
-        $sql = "SELECT * FROM uploads WHERE item_id = :id AND type = :type";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':id', $this->Entity->id);
-        $req->bindParam(':type', $this->Entity->type);
-        $req->execute();
-
-        $real_name = array();
-        $long_name = array();
-        $comment = array();
-        $hash = array();
-        $hash_algorithm = array();
-
-        while ($uploads = $req->fetch()) {
-            $real_name[] = $uploads['real_name'];
-            $long_name[] = $uploads['long_name'];
-            $comment[] = $uploads['comment'];
-            $hash[] = $uploads['hash'];
-            $hash_algorithm[] = $uploads['hash_algorithm'];
-        }
-        // do we have files attached ?
-        if ($req->rowCount() > 0) {
-            $this->content .= "<section class='no_break'>";
-            if ($req->rowCount() === 1) {
-                $this->content .= "<h3>Attached file :</h3>";
+        $Uploads = new Uploads($this->Entity);
+        $uploadsArr = $Uploads->readAll();
+        $fileNb = count($uploadsArr);
+        if ($fileNb > 0) {
+            $this->content .= "<section class='no-break'>";
+            if ($fileNb === 1) {
+                $this->content .= "<h3>Attached file:</h3>";
             } else {
-                $this->content .= "<h3>Attached files :</h3>";
+                $this->content .= "<h3>Attached files:</h3>";
             }
-            $this->content .= "<ul>";
-            $real_name_cnt = $req->rowCount();
-            for ($i = 0; $i < $real_name_cnt; $i++) {
-                $this->content .= "<li>" . $real_name[$i];
+
+            foreach ($uploadsArr as $upload) {
+                // the name of the file
+                $this->content .= "<p class='pdf-ul'>" . $upload['real_name'];
                 // add a comment ? don't add if it's the default text
-                if ($comment[$i] != 'Click to add a comment') {
-                    $this->content .= " (" . stripslashes(htmlspecialchars_decode($comment[$i])) . ")";
+                if ($upload['comment'] != 'Click to add a comment') {
+                    $this->content .= " (" . stripslashes(htmlspecialchars_decode($upload['comment'])) . ")";
                 }
                 // add hash ? don't add if we don't have it
                 // length must be greater (sha2 hashes) or equal (md5) 32 bits
-                if (strlen($hash[$i]) >= 32) { // we have hash
-                    $this->content .= "<br>" . $hash_algorithm[$i] . " : " . $hash[$i];
+                if (strlen($upload['hash']) >= 32) { // we have hash
+                    $this->content .= "<br>" . $upload['hash_algorithm'] . " : " . $upload['hash'];
                 }
                 // if this is an image file, add the thumbnail picture
-                $ext = filter_var(Tools::getExt($real_name[$i]), FILTER_SANITIZE_STRING);
-                $filepath = 'uploads/' . $long_name[$i];
-
-                if (file_exists($filepath) && preg_match('/(jpg|jpeg|png|gif)$/i', $ext)) {
-                    $this->content .= "<br /><img class='attached_image' src='" . $filepath . "' alt='attached image' />";
+                $ext = filter_var(Tools::getExt($upload['real_name']), FILTER_SANITIZE_STRING);
+                $filePath = 'uploads/' . $upload['long_name'];
+                if (file_exists($filePath) && preg_match('/(jpg|jpeg|png|gif)$/i', $ext)) {
+                    $this->content .= "<br /><img class='attached-image' src='" . $filePath . "' alt='attached image' />";
                 }
-                $this->content .= "</li>";
+
+                $this->content .= "</p>";
             }
-            $this->content .= "</ul></section>";
+            $this->content .= "</section>";
         }
     }
 
@@ -323,48 +308,27 @@ class MakePdf extends Make
     private function addLinkedItems()
     {
         if ($this->Entity->type === 'experiments') {
-            // SQL to get linked items
-            $sql = "SELECT experiments_links.*,
-                experiments_links.link_id AS item_id,
-                items.title AS title,
-                items_types.name AS type
-                FROM experiments_links
-                LEFT JOIN items ON (experiments_links.link_id = items.id)
-                LEFT JOIN items_types ON (items.type = items_types.id)
-                WHERE item_id = :item_id";
-            $req = $this->pdo->prepare($sql);
-            $req->bindParam(':item_id', $this->Entity->id);
-            $req->execute();
-            $links_id_arr = array();
-            $links_title_arr = array();
-            $links_type_arr = array();
-            // we put what we need in arrays
-            while ($links = $req->fetch()) {
-                $links_id_arr[] = $links['item_id'];
-                $links_title_arr[] = $links['title'];
-                $links_type_arr[] = $links['type'];
-            }
-            // only display this section if there is something to display
-            if ($req->rowCount() > 0) {
-                $this->content .= '<section>';
-                if ($req->rowCount() === 1) {
-                    $this->content .= "<h3>Linked item :</h3>";
-                } else {
-                    $this->content .= "<h3>Linked items :</h3>";
-                }
-                $this->content .= "<ul>";
-                $row_cnt = $req->rowCount();
+            $Links = new Links($this->Entity);
+            $linksArr = $Links->read();
+            $linkNb = count($linksArr);
 
+            if ($linkNb > 0) {
+                $this->content .= "<section class='no-break'>";
+                if ($linkNb === 1) {
+                    $this->content .= "<h3>Linked item:</h3>";
+                } else {
+                    $this->content .= "<h3>Linked items:</h3>";
+                }
                 // add the item with a link
                 $url = 'https://' . $_SERVER['SERVER_NAME'] . Tools::getServerPort() . $_SERVER['PHP_SELF'];
-                for ($i = 0; $i < $row_cnt; $i++) {
+                $itemUrl = str_replace(array('make.php', 'app/controllers/ExperimentsController.php'), 'database.php', $url);
 
-                    $item_url = str_replace(array('make.php', 'app/controllers/ExperimentsController.php'), 'database.php', $url);
-                    $full_item_url = $item_url . "?mode=view&id=" . $links_id_arr[$i];
-
-                    $this->content .= "<li>[" . $links_type_arr[$i] . "] - <a href='" . $full_item_url . "'>" . $links_title_arr[$i] . "</a></li>";
+                foreach ($linksArr as $link) {
+                    $fullItemUrl = $itemUrl . "?mode=view&id=" . $link['link_id'];
+                    $this->content .= "<p class='pdf-ul'>";
+                    $this->content .= "<span style='color:#" . $link['color'] . "'>" . $link['name'] . "</span> - <a href='" . $fullItemUrl . "'>" . $link['title'] . "</a></p>";
                 }
-                $this->content .= "</ul></section>";
+                $this->content .= "</section>";
             }
         }
     }

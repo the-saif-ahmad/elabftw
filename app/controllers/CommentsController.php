@@ -23,7 +23,7 @@ try {
 
     // CREATE
     if (isset($_POST['commentsCreate'])) {
-        $Comments->Experiments->setId($_POST['id']);
+        $Comments->Entity->setId($_POST['id']);
         if ($Comments->create($_POST['comment'])) {
             echo json_encode(array(
                 'res' => true,
@@ -54,7 +54,7 @@ try {
 
     // DESTROY
     if (isset($_POST['destroy'])) {
-        if ($Comments->destroy($_POST['id'])) {
+        if ($Comments->destroy($_POST['id'], $_SESSION['userid'])) {
             echo json_encode(array(
                 'res' => true,
                 'msg' => _('Comment successfully deleted')

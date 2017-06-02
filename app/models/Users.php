@@ -72,23 +72,23 @@ class Users extends Auth
     }
 
     /**
-     * Create a new user
+     * Create a new user. If no password is provided, it's because we create it from SAML.
      *
      * @param string $email
-     * @param string $password
      * @param int $team
      * @param string $firstname
      * @param string $lastname
+     * @param string $password
      * @return bool
      */
-    public function create($email, $password, $team, $firstname, $lastname)
+    public function create($email, $team, $firstname = '', $lastname = '', $password = '')
     {
         // check for duplicate of email
         if ($this->isDuplicateEmail($email)) {
             throw new Exception(_('Someone is already using that email address!'));
         }
 
-        if (!$this->checkPasswordLength($password)) {
+        if (!$this->checkPasswordLength($password) && strlen($password) > 0) {
             $error = sprintf(_('Password must contain at least %s characters.'), self::MIN_PASSWORD_LENGTH);
             throw new Exception($error);
         }
@@ -101,7 +101,7 @@ class Users extends Auth
         // Create salt
         $salt = hash("sha512", uniqid(rand(), true));
         // Create hash
-        $passwordHash = hash("sha512", $salt . $_POST['password']);
+        $passwordHash = hash("sha512", $salt . $password);
 
         // Registration date is stored in epoch
         $registerDate = time();
@@ -167,7 +167,8 @@ class Users extends Auth
      */
     private function getValidated($group)
     {
-        if ($this->Config->configArr['admin_validate'] === "1" && $group === 4) { // validation is required for normal user
+        // validation is required for normal user
+        if ($this->Config->configArr['admin_validate'] === "1" && $group === 4) {
             return 0; // so new user will need validation
         }
         return 1;
@@ -354,6 +355,7 @@ class Users extends Auth
         }
 
         $this->userData = $this->read($userid);
+        $this->userid = $this->userData['userid'];
     }
 
     /**
@@ -365,8 +367,11 @@ class Users extends Auth
      */
     public function readAllFromTeam($team, $validated = 1)
     {
-        $sql = "SELECT *, CONCAT (firstname, ' ', lastname) AS fullname
-            FROM users WHERE validated = :validated AND team = :team";
+        $sql = "SELECT users.*, CONCAT (users.firstname, ' ', users.lastname) AS fullname,
+            teams.team_name AS teamname
+            FROM users
+            LEFT JOIN teams ON (users.team = teams.team_id)
+            WHERE users.validated = :validated AND users.team = :team";
         $req = $this->pdo->prepare($sql);
         $req->bindValue(':validated', $validated);
         $req->bindValue(':team', $team);
@@ -473,15 +478,6 @@ class Users extends Auth
      */
     public function updatePreferences($params)
     {
-        // DISPLAY
-        $new_display = 'default';
-        if ($params['display'] === 'compact') {
-            $new_display = 'compact';
-        }
-        // FOR DEMO DISPLAY IS ALWAYS DEFAULT
-        $new_display = 'default';
-        // END DEMO BLOCK
-
         // LIMIT
         $filter_options = array(
             'options' => array(
@@ -511,31 +507,26 @@ class Users extends Auth
         }
 
         // SHOW TEAM
+        $new_show_team = 0;
         if (isset($params['show_team']) && $params['show_team'] === 'on') {
             $new_show_team = 1;
-        } else {
-            $new_show_team = 0;
         }
 
         // CLOSE WARNING
+        $new_close_warning = 0;
         if (isset($params['close_warning']) && $params['close_warning'] === 'on') {
             $new_close_warning = 1;
-        } else {
-            $new_close_warning = 0;
         }
         // CHEM EDITOR
+        $new_chem_editor = 0;
         if (isset($params['chem_editor']) && $params['chem_editor'] === 'on') {
             $new_chem_editor = 1;
-        } else {
-            $new_chem_editor = 0;
         }
 
         // LANG
-        $lang_array = array('en_GB', 'ca_ES', 'de_DE', 'es_ES', 'fr_FR', 'it_IT', 'pl_PL', 'pt_BR', 'pt_PT', 'ru_RU', 'sl_SI', 'zh_CN');
-        if (isset($params['lang']) && in_array($params['lang'], $lang_array)) {
+        $new_lang = 'en_GB';
+        if (isset($params['lang']) && in_array($params['lang'], array_keys(Tools::getLangsArr()))) {
             $new_lang = $params['lang'];
-        } else {
-            $new_lang = 'en_GB';
         }
 
         // DEFAULT VIS
@@ -546,7 +537,6 @@ class Users extends Auth
         }
 
         $sql = "UPDATE users SET
-            display = :new_display,
             limit_nb = :new_limit,
             sc_create = :new_sc_create,
             sc_edit = :new_sc_edit,
@@ -559,7 +549,6 @@ class Users extends Auth
             default_vis = :new_default_vis
             WHERE userid = :userid;";
         $req = $this->pdo->prepare($sql);
-        $req->bindParam(':new_display', $new_display);
         $req->bindParam(':new_limit', $new_limit);
         $req->bindParam(':new_sc_create', $new_sc_create);
         $req->bindParam(':new_sc_edit', $new_sc_edit);
@@ -614,9 +603,7 @@ class Users extends Auth
         $params['skype'] = filter_var($params['skype'], FILTER_SANITIZE_STRING);
 
         // Check website
-        if (!filter_var($params['website'], FILTER_VALIDATE_URL)) {
-            throw new Exception(_('A mandatory field is missing!'));
-        }
+        $params['website'] = filter_var($params['website'], FILTER_VALIDATE_URL);
 
         $sql = "UPDATE users SET
             email = :email,
