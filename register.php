@@ -16,19 +16,16 @@ use Exception;
  * Create an account
  *
  */
+require_once 'app/init.inc.php';
+$App->pageTitle = _('Register');
+
 try {
-    require_once 'app/init.inc.php';
-    $pageTitle = _('Register');
-    require_once 'app/head.inc.php';
     // DEMO BLOCK
     $message ="Thank you for trying eLabFTW. This is a demo. This is not a webservice: you need <a style='color:blue;' href='https://elabftw.readthedocs.io/en/latest/'>to install it</a> on a server or your computer.";
-    echo Tools::displayMessage($message, 'ok', false);
-    require_once 'app/footer.inc.php';
-    die();
+    die($message);
     // END DEMO BLOCK
-
     // Check if we're logged in
-    if (isset($_SESSION['auth']) && $_SESSION['auth'] == 1) {
+    if ($Session->has('auth')) {
         throw new Exception(sprintf(
             _('Please %slogout%s before you register another account.'),
             "<a style='alert-link' href='app/logout.php'>",
@@ -36,21 +33,20 @@ try {
         ));
     }
 
-    $Config = new Config();
     // local register might be disabled
-    if ($Config->configArr['local_register'] === '0') {
+    if ($App->Config->configArr['local_register'] === '0') {
         throw new Exception(_('No local account creation is allowed!'));
     }
 
-    $Teams = new Teams();
+    $Teams = new Teams($Users);
     $teamsArr = $Teams->readAll();
-    echo $twig->render('register.html', array(
-        'teamsArr' => $teamsArr,
-        'showLocal' => $showLocal
-    ));
+
+    $template = 'register.html';
+    $renderArr = array('teamsArr' => $teamsArr);
 
 } catch (Exception $e) {
-    echo Tools::displayMessage($e->getMessage(), 'ko', false);
-} finally {
-    require_once 'app/footer.inc.php';
+    $template = 'error.html';
+    $renderArr = array('error' => $e->getMessage());
 }
+
+echo $App->render($template, $renderArr);

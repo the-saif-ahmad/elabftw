@@ -110,6 +110,17 @@ class Tools
     }
 
     /**
+     * Convert markdown to html
+     *
+     * @param string $md Markdown code
+     * @return string HTML code
+     */
+    public static function md2html($md)
+    {
+        return \Michelf\Markdown::defaultTransform($md);
+    }
+
+    /**
      * Converts the php.ini upload size setting to a numeric value in MB
      * Returns 2 if no value is found (using the default setting that was in there previously)
      * It also checks for the post_max_size value and return the lowest value
@@ -192,28 +203,6 @@ class Tools
     }
 
     /**
-     * Put firstname lowercase and first letter uppercase
-     *
-     * @param string $firstname
-     * @return string
-     */
-    public static function purifyFirstname($firstname)
-    {
-        return ucwords(strtolower(filter_var($firstname, FILTER_SANITIZE_STRING)));
-    }
-
-    /**
-     * Put lastname in capital letters
-     *
-     * @param string $lastname
-     * @return string
-     */
-    public static function purifyLastname($lastname)
-    {
-        return strtoupper(filter_var($lastname, FILTER_SANITIZE_STRING));
-    }
-
-    /**
      * Get the extension of a file.
      *
      * @param string $filename path of the file
@@ -229,41 +218,6 @@ class Tools
         }
 
         return 'unknown';
-    }
-
-    /**
-     * This is needed in the case you run an http server but people are connecting
-     * through haproxy with ssl, with a http_x_forwarded_proto header.
-     *
-     * @return bool
-     */
-    public static function usingSsl()
-    {
-        return ((isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on')
-            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO'])
-            && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https'));
-    }
-
-    /**
-     * Return a string 5+3+6 when fed an array
-     *
-     * @param array $array
-     * @param string $delim An optionnal delimiter
-     * @return false|string
-     */
-    public static function buildStringFromArray($array, $delim = '+')
-    {
-        $str = "";
-
-        if (!is_array($array)) {
-            return false;
-        }
-
-        foreach ($array as $i) {
-            $str .= $i . $delim;
-        }
-        // remove last delimiter
-        return rtrim($str, $delim);
     }
 
     /**
@@ -417,36 +371,28 @@ class Tools
     }
 
     /**
-     * Used when generating options for select menus
+     * Display the stars rating for a DB item
      *
-     * @param string $getParam
-     * @param string $value
-     * @return string|null
+     * @param int $rating The number of stars to display
+     * @return string HTML of the stars
      */
-    public static function addSelected($getParam, $value)
+    public static function showStars($rating)
     {
-        if ($getParam === $value) {
-            return " selected";
-        }
+        $green = "<img src='app/img/star-green.png' alt='☻' />";
+        $gray = "<img src='app/img/star-gray.png' alt='☺' />";
+
+        return str_repeat($green, $rating) . str_repeat($gray, (5 - $rating));
     }
 
     /**
-     * When you want to know the server port used
-     * We cannot rely on SERVER_PORT because it'll always be 443 inside Docker
-     * See issue #362
-     * If the port is standard (443), it will not appear in HTTP_HOST, but otherwise it'll be there
-     * so we can get the custom port from here
+     * This is used to include the title in the page name (see #324)
+     * It removes #, ' and " and appends "- eLabFTW"
      *
-     * @return string empty if standard port or ":444"
+     * @param $title string
+     * @return string
      */
-    public static function getServerPort()
+    public static function getCleanTitle($title)
     {
-        $port = '';
-        if (strpos($_SERVER['HTTP_HOST'], ':')) {
-            $hostArr = explode(':', $_SERVER['HTTP_HOST']);
-            $port = ':' . $hostArr[1];
-        }
-
-        return $port;
+        return str_replace(array('#', "&39;", "&34;"), '', $title) . " - eLabFTW";
     }
 }

@@ -11,7 +11,7 @@
 namespace Elabftw\Elabftw;
 
 use PDO;
-use Exception;
+use InvalidArgumentException;
 
 /**
  * For things that are used by experiments, database, status, item types, templates, …
@@ -19,14 +19,14 @@ use Exception;
  */
 trait EntityTrait {
 
-    /** a positive int */
-    public $id;
+    /** @var Db $Db SQL Database */
+    protected $Db;
 
-    /** the PDO object */
-    protected $pdo;
-
-    /** instance of Users */
+    /** @var Users $Users our user */
     public $Users;
+
+    /** @var int $id Id of the entity */
+    public $id;
 
     /**
      * Check and set id
@@ -36,7 +36,7 @@ trait EntityTrait {
     public function setId($id)
     {
         if (Tools::checkId($id) === false) {
-            throw new Exception(_('The id parameter is not valid!'));
+            throw new InvalidArgumentException(_('The id parameter is not valid!'));
         }
         $this->id = $id;
         // prevent reusing of old data from previous id
@@ -53,15 +53,26 @@ trait EntityTrait {
     {
         $success = array();
 
+        // whitelist the tables
+        $whitelist = array(
+            'status',
+            'experiments_templates',
+            'items_types'
+        );
+
+        if (!in_array($post['table'], $whitelist)) {
+            throw new InvalidArgumentException('Wrong table.');
+        }
+
         foreach ($post['ordering'] as $ordering => $id) {
             $id = explode('_', $id);
             $id = $id[1];
             // the table param is whitelisted here
             $sql = "UPDATE " . $post['table'] . " SET ordering = :ordering WHERE id = :id AND team = :team";
-            $req = $this->pdo->prepare($sql);
-            $req->bindParam(':ordering', $ordering, PDO::PARAM_INT);
+            $req = $this->Db->prepare($sql);
+            $req->bindParam(':ordering', $ordering);
             $req->bindParam(':team', $this->Users->userData['team']);
-            $req->bindParam(':id', $id, PDO::PARAM_INT);
+            $req->bindParam(':id', $id);
             $success[] = $req->execute();
         }
 

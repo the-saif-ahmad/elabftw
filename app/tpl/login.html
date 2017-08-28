@@ -1,3 +1,14 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<!-- show message if there is a failed_attempt -->
+{% if Session.has('failed_attempt') and Session.get('failed_attempt') < App.Config.configArr.login_tries %}
+    {% set number_of_tries_left = App.Config.configArr.login_tries - Session.get('failed_attempt') %}
+    {{ 'Number of login attempt left before being banned for %s minutes: %s'|trans|format(
+        App.Config.configArr.ban_time,
+        number_of_tries_left)|msg('ko') }}
+{% endif %}
+
 <menu class='border' style='color:#29AEB9'>{{ 'Note: You need cookies enabled to log in.'|trans }}</menu>
 
 <section class='center'>
@@ -8,7 +19,7 @@
         <br>
         <p class="login-area">
         <label class='block' for="email">{{ 'Email'|trans }}</label>
-        <input class="login-area-input" id='email' name="email" type="email" value='{{ SESSION.email ? SESSION.email }}' required /><br>
+        <input class="login-area-input" name="email" type="email" value='{{ Session.has('email') ? Session.get('email') }}' required /><br>
         <label class='block' for="password">{{ 'Password'|trans }}</label>
             <input class="login-area-input" id='password' name="password" type="password" required /><br>
             <!-- form key -->
@@ -65,3 +76,4 @@ $(document).ready(function(){
 });
 </script>
 <script src='app/js/login.min.js'></script>
+{% endblock body %}

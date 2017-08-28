@@ -18,29 +18,29 @@ use Exception;
  */
 
 require_once 'app/init.inc.php';
-$pageTitle = _('Export');
+$App->pageTitle = _('Export');
 
 try {
-    $Users = new Users($_SESSION['userid']);
-
-    if ($_GET['type'] === 'experiments') {
+    if ($Request->query->get('type') === 'experiments') {
         $Entity = new Experiments($Users);
     } else {
         $Entity = new Database($Users);
     }
 
-    switch ($_GET['what']) {
+    switch ($Request->query->get('what')) {
         case 'csv':
-            $Make = new MakeCsv($Entity, $_GET['id']);
+            $Make = new MakeCsv($Entity, $Request->query->get('id'));
             break;
 
         case 'zip':
-            $Make = new MakeZip($Entity, $_GET['id']);
+            $Make = new MakeZip($Entity, $Request->query->get('id'));
             break;
 
         case 'pdf':
-            $Entity->setId($_GET['id']);
+            $Entity->setId($Request->query->get('id'));
+            $Entity->canOrExplode('read');
             $Make = new MakePdf($Entity);
+            $Make->output();
             break;
 
         default:
@@ -48,20 +48,21 @@ try {
     }
 
     // the pdf is shown directly, but for csv or zip we want a download page
-    if ($_GET['what'] === 'csv' || $_GET['what'] === 'zip') {
+    if ($Request->query->get('what') === 'csv' || $Request->query->get('what') === 'zip') {
 
         $filesize = Tools::formatBytes(filesize($Make->filePath));
-        require_once 'app/head.inc.php';
 
-        echo $twig->render('make.html', array(
-            'what' => $_GET['what'],
+        $template = 'make.html';
+        $renderArr = array(
+            'what' => $Request->query->get('what'),
             'Make' => $Make,
             'filesize' => $filesize
-        ));
-        require_once 'app/footer.inc.php';
+        );
+        echo $App->render($template, $renderArr);
     }
 
 } catch (Exception $e) {
-    require_once 'app/head.inc.php';
-    echo Tools::displayMessage($e->getMessage(), 'ko');
+    $template = 'error.html';
+    $renderArr = array('error' => $e->getMessage());
+    echo $App->render($template, $renderArr);
 }

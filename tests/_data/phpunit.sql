@@ -22,6 +22,29 @@ SET time_zone = "+00:00";
 CREATE DATABASE IF NOT EXISTS `phpunit` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
 USE `phpunit`;
 
+--
+-- experiments_tpl_tags
+--
+CREATE TABLE `experiments_tpl_tags` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tag` VARCHAR(255) NOT NULL,
+    `item_id` INT UNSIGNED NOT NULL,
+    `userid` INT UNSIGNED NOT NULL,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `experiments_steps`
+--
+CREATE TABLE `experiments_steps` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
+            `item_id` INT UNSIGNED NOT NULL ,
+            `body` TEXT NOT NULL ,
+            `ordering` INT UNSIGNED NULL DEFAULT NULL ,
+            `finished` TINYINT(1) NOT NULL DEFAULT '0',
+            `finished_time` DATETIME NULL DEFAULT NULL,
+            PRIMARY KEY (`id`));
 -- --------------------------------------------------------
 --
 -- Table structure for table `todolist`
@@ -70,7 +93,7 @@ INSERT INTO `config` (`conf_name`, `conf_value`) VALUES
 ('mail_from', 'phpunit@mailgun.org'),
 ('mail_method', 'smtp'),
 ('proxy', ''),
-('schema', '22'),
+('schema', '31'),
 ('sendmail_path', '/usr/sbin/sendmail'),
 ('smtp_address', 'smtp.mailgun.org'),
 ('smtp_encryption', 'tls'),
@@ -95,6 +118,9 @@ INSERT INTO `config` (`conf_name`, `conf_value`) VALUES
 ('saml_x509', NULL),
 ('saml_privatekey', NULL),
 ('saml_team', NULL),
+('saml_email', NULL),
+('saml_firstname', NULL),
+('saml_lastname', NULL),
 ('local_login', '1'),
 ('local_register', '1');
 
@@ -181,7 +207,7 @@ CREATE TABLE `experiments_links` (
 CREATE TABLE `experiments_revisions` (
   `id` int(10) UNSIGNED NOT NULL,
   `item_id` int(10) UNSIGNED NOT NULL,
-  `body` text NOT NULL,
+  `body` mediumtext NOT NULL,
   `savedate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `userid` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -287,7 +313,7 @@ INSERT INTO `items` (`id`, `team`, `title`, `date`, `body`, `rating`, `type`, `l
 CREATE TABLE `items_revisions` (
   `id` int(10) UNSIGNED NOT NULL,
   `item_id` int(10) UNSIGNED NOT NULL,
-  `body` text NOT NULL,
+  `body` mediumtext NOT NULL,
   `savedate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `userid` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -399,7 +425,8 @@ CREATE TABLE `teams` (
   `stamppass` text,
   `stampprovider` text,
   `stampcert` text,
-  `stamphash` varchar(10) DEFAULT 'sha256'
+  `stamphash` varchar(10) DEFAULT 'sha256',
+  `team_orgid` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
@@ -407,7 +434,7 @@ CREATE TABLE `teams` (
 --
 
 INSERT INTO `teams` (`team_id`, `team_name`, `deletable_xp`, `link_name`, `link_href`, `datetime`, `stamplogin`, `stamppass`, `stampprovider`, `stampcert`, `stamphash`) VALUES
-(1, 'Editme', 1, 'Documentation', 'https://elabftw.readthedocs.io', '2016-07-28 19:23:15', NULL, NULL, NULL, NULL, 'sha256');
+(1, 'Editme', 1, 'Documentation', 'https://doc.elabftw.net', '2016-07-28 19:23:15', NULL, NULL, NULL, NULL, 'sha256');
 
 -- --------------------------------------------------------
 
@@ -479,6 +506,8 @@ CREATE TABLE `users` (
   `register_date` bigint(20) UNSIGNED NOT NULL,
   `token` varchar(255) DEFAULT NULL,
   `limit_nb` tinyint(255) NOT NULL DEFAULT '15',
+  `orderby` varchar(255) NULL DEFAULT NULL,
+  `sort` varchar(255) NULL DEFAULT NULL,
   `sc_create` varchar(1) NOT NULL DEFAULT 'c',
   `sc_edit` varchar(1) NOT NULL DEFAULT 'e',
   `sc_submit` varchar(1) NOT NULL DEFAULT 's',
@@ -489,7 +518,10 @@ CREATE TABLE `users` (
   `validated` tinyint(1) NOT NULL DEFAULT '0',
   `lang` varchar(5) NOT NULL DEFAULT 'en_GB',
   `api_key` varchar(255) NULL DEFAULT NULL,
-  `default_vis` varchar(255) NULL DEFAULT NULL
+  `default_vis` varchar(255) NULL DEFAULT NULL,
+  `single_column_layout` tinyint(1) NOT NULL DEFAULT 0,
+  `cjk_fonts` tinyint(1) NOT NULL DEFAULT 0,
+  `use_markdown` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
@@ -734,6 +766,8 @@ ALTER TABLE `team_groups`
 --
 ALTER TABLE `uploads`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+ALTER TABLE `idps`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 --
 -- AUTO_INCREMENT for table `users`
 --
@@ -750,3 +784,33 @@ ALTER TABLE `todolist`
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+-- elabftw
+-- now let's add some stuff to the default db
+-- create a second team
+INSERT INTO teams (team_name, link_name, link_href) VALUES ('Tata team', 'doc', 'http://doc.example.org');
+-- create a second user
+INSERT INTO users(
+    `email`,
+    `password`,
+    `firstname`,
+    `lastname`,
+    `team`,
+    `usergroup`,
+    `salt`,
+    `register_date`,
+    `validated`,
+    `lang`
+        ) VALUES (
+    'tata@yopmail.com',
+    'osef',
+    'tata',
+    'TATA',
+    '2',
+    '1',
+    'osef',
+    '1503372272',
+    '1',
+    'en-GB');
+
+

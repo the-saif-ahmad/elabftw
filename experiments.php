@@ -12,131 +12,175 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use InvalidArgumentException;
 
 /**
  * Entry point for all experiment stuff
  *
  */
+require_once 'app/init.inc.php';
+$App->pageTitle = ngettext('Experiment', 'Experiments', 2);
+
 try {
-    require_once 'app/init.inc.php';
-    $pageTitle = ngettext('Experiment', 'Experiments', 2);
-    $selectedMenu = 'Experiments';
-    require_once 'app/head.inc.php';
+    $Entity = new Experiments($Users);
+    $EntityView = new ExperimentsView($Entity);
+    $Status = new Status($Entity->Users);
 
-    if (!isset($Users)) {
-        $Users = new Users($_SESSION['userid']);
-    }
+    // VIEW
+    if ($Request->query->get('mode') === 'view') {
 
-    $EntityView = new ExperimentsView(new Experiments($Users));
-    $Status = new Status($EntityView->Entity->Users);
-    $Tags = new Tags($EntityView->Entity);
+        $Entity->setId($Request->query->get('id'));
+        $Entity->canOrExplode('read');
 
-    if (!isset($_GET['mode']) || empty($_GET['mode']) || $_GET['mode'] === 'show') {
+        // UPLOADS
+        $UploadsView = new UploadsView($Entity->Uploads);
+
+        $template = 'view.html';
+
+        $renderArr = array(
+            'Ev' => $EntityView,
+            'Entity' => $Entity,
+            'Uv' => $UploadsView,
+            'cleanTitle' => Tools::getCleanTitle($Entity->entityData['title']),
+            'mode' => 'view'
+        );
+
+    // EDIT
+    } elseif ($Request->query->get('mode') === 'edit') {
+
+        $Entity->setId($Request->query->get('id'));
+        // check permissions
+        $Entity->canOrExplode('write');
+        // a locked experiment cannot be edited
+        if ($Entity->entityData['locked']) {
+            throw new Exception(_('<strong>This item is locked.</strong> You cannot edit it.'));
+        }
+
+        $Revisions = new Revisions($Entity);
+        // Uploads
+        $UploadsView = new UploadsView($Entity->Uploads);
+        $TeamGroups = new TeamGroups($Entity->Users);
+
+        $template = 'edit.html';
+
+        $renderArr = array(
+            'Entity' => $Entity,
+            'Uv' => $UploadsView,
+            'mode' => 'edit',
+            'Revisions' => $Revisions,
+            'Categories' => $Status,
+            'TeamGroups' => $TeamGroups,
+            'cleanTitle' => Tools::getCleanTitle($Entity->entityData['title']),
+            'maxUploadSize' => Tools::returnMaxUploadSize()
+        );
+
+    // DEFAULT MODE IS SHOW
+    } else {
+        $searchType = '';
+        $tag = '';
+        $query = '';
+
         // CATEGORY FILTER
-        if (isset($_GET['cat']) && !empty($_GET['cat']) && Tools::checkId($_GET['cat'])) {
-            $EntityView->Entity->categoryFilter = " AND status.id = " . $_GET['cat'];
-            $EntityView->searchType = 'filter';
+        if (Tools::checkId($Request->query->get('cat'))) {
+            $Entity->categoryFilter = " AND status.id = " . $Request->query->get('cat');
+            $searchType = 'filter';
         }
         // TAG FILTER
-        if (isset($_GET['tag']) && $_GET['tag'] != '') {
-            $tag = filter_var($_GET['tag'], FILTER_SANITIZE_STRING);
-            $EntityView->Entity->tagFilter = " AND tagt.tag LIKE '" . $tag . "'";
-            $EntityView->searchType = 'tag';
+        if ($Request->query->get('tag') != '') {
+            $tag = filter_var($Request->query->get('tag'), FILTER_SANITIZE_STRING);
+            $Entity->tagFilter = " AND tagt.tag LIKE '" . $tag . "'";
+            $searchType = 'tag';
         }
         // QUERY FILTER
-        if (isset($_GET['q']) && !empty($_GET['q'])) {
-            $query = filter_var($_GET['q'], FILTER_SANITIZE_STRING);
-            $EntityView->query = $query;
-            $EntityView->Entity->queryFilter = " AND (
+        if ($Request->query->get('q') != '') {
+            $query = filter_var($Request->query->get('q'), FILTER_SANITIZE_STRING);
+            $Entity->queryFilter = " AND (
                 title LIKE '%$query%' OR
                 date LIKE '%$query%' OR
                 body LIKE '%$query%' OR
                 elabid LIKE '%$query%'
             )";
-            $EntityView->searchType = 'query';
-        }
-        // RELATED FILTER
-        if (isset($_GET['related']) && Tools::checkId($_GET['related'])) {
-            $EntityView->related = $_GET['related'];
-            $EntityView->searchType = 'related';
+            $searchType = 'query';
         }
         // ORDER
-        // default by date
-        $EntityView->Entity->order = 'experiments.date';
-        if (isset($_GET['order'])) {
-            if ($_GET['order'] === 'cat') {
-                $EntityView->Entity->order = 'status.name';
-            } elseif ($_GET['order'] === 'date' || $_GET['order'] === 'rating' || $_GET['order'] === 'title') {
-                $EntityView->Entity->order = 'experiments.' . $_GET['order'];
-            } elseif ($_GET['order'] === 'comment') {
-                $EntityView->Entity->order = 'experiments_comments.recentComment';
-            }
+        $order = '';
+
+        // load the pref from the user
+        if (isset($Entity->Users->userData['orderby'])) {
+            $order = $Entity->Users->userData['orderby'];
         }
+
+        // now get pref from the filter-order-sort menu
+        if ($Request->query->has('order')) {
+            $order = $Request->query->get('order');
+        }
+
+        if ($order === 'cat') {
+            $Entity->order = 'status.ordering';
+        } elseif ($order === 'date' || $order === 'rating' || $order === 'title') {
+            $Entity->order = 'experiments.' . $order;
+        } elseif ($order === 'comment') {
+            $Entity->order = 'experiments_comments.recent_comment';
+        }
+
         // SORT
-        if (isset($_GET['sort'])) {
-            if ($_GET['sort'] === 'asc' || $_GET['sort'] === 'desc') {
-                $EntityView->Entity->sort = $_GET['sort'];
+        $sort = '';
+
+        // load the pref from the user
+        if (isset($Entity->Users->userData['sort'])) {
+            $sort = $Entity->Users->userData['sort'];
+        }
+
+        // now get pref from the filter-order-sort menu
+        if ($Request->query->has('sort')) {
+            $sort = $Request->query->get('sort');
+        }
+
+        if ($sort === 'asc' || $sort === 'desc') {
+            $Entity->sort = $sort;
+        }
+
+        $Status = new Status($Entity->Users);
+        $categoryArr = $Status->readAll();
+
+        $Templates = new Templates($Entity->Users);
+        $templatesArr = $Templates->readFromUserid();
+
+
+        // READ ALL ITEMS
+
+        // related filter
+        if (Tools::checkId($Request->query->get('related'))) {
+            $searchType = 'related';
+            $itemsArr = $Entity->readRelated($Request->query->get('related'));
+
+        } else {
+
+            // filter by user only if we are not making a search
+            if (!$Users->userData['show_team'] && ($searchType === '' || $searchType === 'filter')) {
+                $Entity->setUseridFilter();
             }
+
+            $itemsArr = $Entity->read();
         }
 
-        echo $EntityView->buildShowMenu('experiments');
-        echo $EntityView->buildShow();
-        echo $twig->render('show.html', array(
-            'Ev' => $EntityView
-        ));
+        $template = 'show.html';
 
-    // VIEW
-    } elseif ($_GET['mode'] === 'view') {
-
-        $EntityView->Entity->setId($_GET['id']);
-        $Comments = new Comments($EntityView->Entity);
-        $EntityView->initViewEdit();
-
-        $commentsArr = $Comments->read();
-        $ownerName = '';
-        if ($EntityView->isReadOnly()) {
-            // we need to get the fullname of the user who owns the experiment to display the RO message
-            $Owner = new Users($EntityView->Entity->entityData['userid']);
-            $ownerName = $Owner->userData['fullname'];
-        }
-
-        if ($EntityView->Entity->entityData['timestamped']) {
-            echo $EntityView->showTimestamp();
-        }
-
-        echo $twig->render('view.html', array(
-            'Ev' => $EntityView,
-            'Status' => $Status,
-            'Tags' => $Tags,
-            'commentsArr' => $commentsArr,
-            'ownerName' => $ownerName,
-            'cleanTitle' => $EntityView->getCleanTitle($EntityView->Entity->entityData['title'])
-        ));
-        echo $EntityView->view();
-
-    // EDIT
-    } elseif ($_GET['mode'] === 'edit') {
-
-        $EntityView->Entity->setId($_GET['id']);
-        $EntityView->initViewEdit();
-        // check permissions
-        $EntityView->Entity->canOrExplode('write');
-        // a locked experiment cannot be edited
-        if ($EntityView->Entity->entityData['locked']) {
-            throw new Exception(_('<strong>This item is locked.</strong> You cannot edit it.'));
-        }
-
-        $Revisions = new Revisions($EntityView->Entity);
-
-        echo $twig->render('edit.html', array(
-            'Ev' => $EntityView,
-            'Revisions' => $Revisions,
-            'Status' => $Status,
-            'Tags' => $Tags,
-            'cleanTitle' => $EntityView->getCleanTitle($EntityView->Entity->entityData['title'])
-        ));
-        echo $EntityView->buildUploadsHtml();
+        $renderArr = array(
+            'Entity' => $Entity,
+            'cleanTitle' => Tools::getCleanTitle($Entity->entityData['title']),
+            'itemsArr' => $itemsArr,
+            'searchType' => $searchType,
+            'categoryArr' => $categoryArr,
+            'templatesArr' => $templatesArr,
+            'tag' => $tag,
+            'query' => $query
+        );
     }
+
+} catch (InvalidArgumentException $e) {
+    $template = 'error.html';
+    $renderArr = array('error' => $e->getMessage());
 
 } catch (Exception $e) {
     $debug = false;
@@ -144,7 +188,8 @@ try {
     if ($debug) {
         $message .= ' ' . $e->getFile() . '(' . $e->getLine() . ')';
     }
-    echo Tools::displayMessage($message, 'ko');
-} finally {
-    require_once 'app/footer.inc.php';
+    $template = 'error.html';
+    $renderArr = array('error' => $message);
 }
+
+echo $App->render($template, $renderArr);

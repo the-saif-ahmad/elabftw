@@ -15,27 +15,32 @@ use Exception;
 /**
  * Import items from a csv file.
  */
-class ImportCsv extends Import
+class ImportCsv extends AbstractImport
 {
-    /** pdo object */
-    private $pdo;
+    /** @var Users $Users the current user */
+    private $Users;
 
-    /** the category in which we do the import */
+    /** @var Db $Db SQL Database */
+    private $Db;
+
+    /** @var int $itemType the category in which we do the import */
     private $itemType;
 
-    /** number of items we got into the database */
+    /** @var int $inserted number of items we got into the database */
     public $inserted = 0;
 
-    /** our file handle */
+    /** @var resource $handle our file handle */
     private $handle;
 
     /**
      * Assign item type
      *
+     * @param Users $users
      */
-    public function __construct()
+    public function __construct(Users $users)
     {
-        $this->pdo = Db::getConnection();
+        $this->Db = Db::getConnection();
+        $this->Users = $users;
 
         $this->checkFileReadable();
         $this->checkMimeType();
@@ -78,7 +83,7 @@ class ImportCsv extends Import
             }
             $row++;
 
-            $title = $data[0];
+            $title = $data[2];
             if (empty($title)) {
                 $title = _('Untitled');
             }
@@ -94,13 +99,13 @@ class ImportCsv extends Import
             // SQL for importing
             $sql = "INSERT INTO items(team, title, date, body, userid, type)
                 VALUES(:team, :title, :date, :body, :userid, :type)";
-            $req = $this->pdo->prepare($sql);
+            $req = $this->Db->prepare($sql);
             $result = $req->execute(array(
-                'team' => $_SESSION['team_id'],
+                'team' => $this->Users->userData['team'],
                 'title' => $title,
                 'date' => Tools::kdate(),
                 'body' => $body,
-                'userid' => $_SESSION['userid'],
+                'userid' => $this->Users->userid,
                 'type' => $this->itemType
             ));
             if (!$result) {

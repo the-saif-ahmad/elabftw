@@ -1,5 +1,8 @@
+{% extends 'base.html' %}
+
+{% block body %}
 <!-- UNVALIDATED USERS BLOCK -->
-{% if unvalidatedUsersArr|length > 0 and (Config.configArr.mail_from != 'notconfigured@example.com') %}
+{% if unvalidatedUsersArr|length > 0 %} 
     <form method='post' action='app/controllers/UsersController.php'>
         <input type='hidden' name='usersValidate' value='true' />
         {{ FormKey.getFormkey|raw }}
@@ -11,7 +14,7 @@
                 <li>
                     <label>
                     <input type='checkbox' name='usersValidateIdArr[]'
-                    value='{{ user.userid }}'> {{ user.fullname }} ({{ user.email }})
+                    value='{{ user.userid }}'> {{ user.fullname|raw }} ({{ user.email }})
                     </label>
                 </li>
             {% endfor %}
@@ -48,20 +51,20 @@
             <p>
                 <label for='deletable_xp'>{{ 'Users can delete experiments:'|trans }}</label>
                 <select class='clean-form' name='deletable_xp' id='deletable_xp'>
-                    <option value='1'{{ teamConfigArr.deletable_xp ? " selected='selected'" }}>{{ 'Yes'|trans }}</option>
-                    <option value='0'{{ not teamConfigArr.deletable_xp ? " selected='selected'" }}>{{ 'No'|trans }}</option>
+                    <option value='1'{{ App.teamConfigArr.deletable_xp ? " selected='selected'" }}>{{ 'Yes'|trans }}</option>
+                    <option value='0'{{ not App.teamConfigArr.deletable_xp ? " selected='selected'" }}>{{ 'No'|trans }}</option>
                 </select>
                 <span class='smallgray'>{{ 'An admin account will always be able to delete experiments.'|trans }}</span>
             </p>
 
             <p>
                 <label class="block" for='link_name'>{{ 'Name of the link in the top menu:'|trans }}</label>
-                <input class="clean-form col-3-form" type='text' value='{{ teamConfigArr.link_name }}' name='link_name' id='link_name' />
+                <input class="clean-form col-3-form" type='text' value='{{ App.teamConfigArr.link_name }}' name='link_name' id='link_name' />
             </p>
 
             <p>
                 <label class="block" for='link_href'>{{ 'Address where this link should point:'|trans }}</label>
-                <input class="clean-form col-3-form" type='text' value='{{ teamConfigArr.link_href }}' name='link_href' id='link_href' />
+                <input class="clean-form col-3-form" type='text' value='{{ App.teamConfigArr.link_href }}' name='link_href' id='link_href' />
             </p>
 
             <br>
@@ -70,25 +73,28 @@
                 <p>
                     <br>
                     <label class='block' for='stampprovider'>{{ 'URL for external timestamping service:'|trans }}</label>
-                    <input class='clean-form col-3-form' type='url' placeholder='http://zeitstempel.dfn.de/' value='{{ teamConfigArr.stampprovider }}' name='stampprovider' id='stampprovider' />
+                    <input class='clean-form col-3-form' type='url' placeholder='http://zeitstempel.dfn.de/' value='{{ App.teamConfigArr.stampprovider }}' name='stampprovider' id='stampprovider' />
                     <span class='smallgray'>{{ 'This should be the URL used for %sRFC 3161%s-compliant timestamping requests.'|trans|format("<a href='https://tools.ietf.org/html/rfc3161'>", "</a>")|raw }}</span>
                 </p>
 
                 <p>
                     <label class='block' for='stampcert'>{{ 'Chain of certificates of the external timestamping service:'|trans }}</label>
-                    <input class='clean-form col-3-form' type='text' placeholder='app/dfn-cert/pki.dfn.pem' value='{{ teamConfigArr.stampcert }}' name='stampcert' id='stampcert' />
+                    <input class='clean-form col-3-form' type='text' placeholder='app/dfn-cert/pki.dfn.pem' value='{{ App.teamConfigArr.stampcert }}' name='stampcert' id='stampcert' />
                     <span class='smallgray'>{{ "This should point to the chain of certificates used by your external timestamping provider to sign the timestamps.%sLocal path relative to eLabFTW installation directory. You should add it in the 'uploads' folder. The file needs to be in %sPEM-encoded (ASCII)%s format!"|trans|format("<br>", "<a href='https://en.wikipedia.org/wiki/Privacy-enhanced_Electronic_Mail'>", "</a>")|raw }}</span>
                 </p>
                     <label class='block' for='stamplogin'>{{ 'Login for external timestamping service:'|trans }}</label>
-                    <input class='clean-form col-3-form' autocomplete='off' type='text' value='{{ teamConfigArr.stamplogin }}' name='stamplogin' id='stamplogin' />
+                    <input class='clean-form col-3-form' autocomplete='off' type='text' value='{{ App.teamConfigArr.stamplogin }}' name='stamplogin' id='stamplogin' />
                     <span class='smallgray'>{{ 'This should be the login associated with your timestamping service provider'|trans }}</span>
                 </p>
 
                 <p>
                     <label class='block' for='stamppass'>{{ 'Password for external timestamping service:'|trans }}</label>
-                    {% if teamConfigArr.stamppass|length > 1 %}
-                        <p>A password is already set.
-                        <a href='app/controllers/AdminController.php?clearStamppass=1'>Clear it</a> or change it below:
+                    {% if App.teamConfigArr.stamppass|length > 1 %}
+                        <p>{{ 'A password is already set.'|trans }}
+                        {{ '%sClear it%s or change it below:'|trans|format("
+                            <a href='app/controllers/AdminController.php?clearStamppass=1'>",
+                            "</a>"
+                        )|raw }}
                         </p>
                     {% endif %}
                     <input class='clean-form col-3-form' autocomplete='off' type='password' name='stamppass' id='stamppass' />
@@ -148,7 +154,7 @@
                     <label class='block' for='teamGroupUserAdd'>{{ 'Add this user'|trans }}</label>
                     <select class='clean-form col-3-form' id='teamGroupUserAdd'>
                         {% for user in usersArr %}
-                            <option value='{{ user.userid }}'>{{ user.fullname }}</option>
+                            <option value='{{ user.userid }}'>{{ user.fullname|raw }}</option>
                         {% endfor %}
                     </select>
 
@@ -167,7 +173,7 @@
                     <label class='block' for='teamGroupUserRm'>{{ 'Remove this user'|trans }}</label>
                     <select class="clean-form col-3-form" id='teamGroupUserRm'>
                         {% for user in usersArr %}
-                            <option value='{{ user.userid }}'>{{ user.fullname }}</option>
+                            <option value='{{ user.userid }}'>{{ user.fullname|raw }}</option>
                         {% endfor %}
                     </select>
 
@@ -192,7 +198,7 @@
                     <h3 title='Click to Edit' class='inline editable teamgroup_name' id='teamgroup_{{ teamGroup.id }}'>{{ teamGroup.name }}</h3>
                     <ul class='group-list'>
                         {% for user in teamGroup.users %}
-                        <li>{{ user.fullname }}</li>
+                        <li>{{ user.fullname|raw }}</li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -317,7 +323,7 @@
         <h3>{{ 'Common Experiment Template'|trans }}</h3><hr>
         <p>{{ 'This is the default text when someone creates an experiment.'|trans }}</p>
         <textarea style='height:400px' data-lang='{{ Users.userData.lang }}' class='mceditable' id='commonTplTemplate' />
-            {{ templatesArr.body|raw }}
+            {{ commonTplBody|raw }}
         </textarea>
         <div class='submitButtonDiv'>
             <button type='submit' class='button'>{{ 'Save'|trans }}</button>
@@ -331,7 +337,7 @@
         <h3>{{ 'Import a CSV File'|trans }}</h3>
         <hr>
         <p style='text-align:justify'>
-            {{ "This page will allow you to import a .csv (Excel spreadsheet) file into the database.<br>First you need to open your .xls/.xlsx file in Excel or Libreoffice and save it as .csv.<br>In order to have a good import, the first row should be the column's field names. You can make a tiny import of 3 lines to see if everything works before you import a big file."|trans|raw }}
+            {{ "This page will allow you to import a .csv (Excel spreadsheet) file into the database.<br>First you need to open your .xls/.xlsx file in Excel or Libreoffice and save it as .csv.<br>In order to have a good import, the first row should be the column's field names. You can make a tiny import of 3 lines to see if everything works before you import a big file. The third column should be the title."|trans|raw }}
             <span class='strong'>{{ "You should make a backup of your database before importing thousands of items!"|trans }}</span>
         </p>
 
@@ -376,7 +382,7 @@
             <option class='disabled-input' value='' disabled>Import experiments</option>
 
             {% for user in usersArr %}
-                <option value='{{ user.userid }}' name='type'>{{ user.fullname }}</option>
+                <option value='{{ user.userid }}' name='type'>{{ user.fullname|raw }}</option>
             {% endfor %}
         </select><br>
         <div class='import_block'>
@@ -395,3 +401,4 @@
 <script src='app/js/tinymce-dropzone.min.js'></script>
 <script src='app/js/admin.min.js'></script>
 <script src='app/js/tabs.min.js'></script>
+{% endblock body %}

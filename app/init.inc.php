@@ -10,51 +10,72 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use PDOException;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\Session;
 
 /**
  * This must be included on top of every page.
  * It loads the config file, connects to the database,
  * includes functions and locale, tries to update the db schema and redirects anonymous visitors.
  */
-try {
-    if (!isset($_SESSION)) {
-        session_start();
-    }
+require_once dirname(dirname(__FILE__)) . '/vendor/autoload.php';
 
-    // add check for php version here also
+try {
+    // CHECK PHP VERSION
     if (!function_exists('version_compare') || version_compare(PHP_VERSION, '5.6', '<')) {
         $message = "Your version of PHP isn't recent enough. Please update your php version to at least 5.6";
         throw new Exception($message);
     }
 
-    // load the config file with info to connect to DB
+    // CREATE REQUEST OBJECT
+    $Request = Request::createFromGlobals();
+
+    // CREATE SESSION
+    $Session = new Session();
+    $Session->start();
+    // and attach it to Request
+    $Request->setSession($Session);
+
+    // LOAD CONFIG.PHP
     $configFilePath = dirname(dirname(__FILE__)) . '/config.php';
     // redirect to install page if the config file is not here
     if (!is_readable($configFilePath)) {
-        header('Location: install');
+        $url = 'https://' . $Request->getHttpHost() . '/install/index.php';
+        header('Location: ' . $url);
         throw new Exception('Redirecting to install folder');
     }
-
     require_once $configFilePath;
+    // END LOAD CONFIG.PHP
 
-    require_once ELAB_ROOT . 'vendor/autoload.php';
+    // Methods for login
+    $Auth = new Auth($Request);
 
-    // this will throw an exception if the SQL structure is not imported yet
+    // the config table from mysql
+    // It's the first SQL request
+    // PDO will throw an exception if the SQL structure is not imported yet
     // so we redirect to the install folder
     try {
-        $Update = new Update(new Config);
-    } catch (Exception $e) {
-        header('Location: install');
+        $Config = new Config();
+    } catch (PDOException $e) {
+        $url = 'https://' . $Request->getHttpHost() . '/install/index.php';
+        header('Location: ' . $url);
         throw new Exception('Redirecting to install folder');
     }
 
-    // i18n (gettext)
-    if (isset($_SESSION['auth'])) {
-        $Users = new Users($_SESSION['userid']);
+    // GET THE LANG
+    if ($Request->getSession()->has('auth')) {
+        // generate full Users object with current userid
+        $Users = new Users($Request->getSession()->get('userid'), $Auth, $Config);
+        // set lang based on user pref
         $locale = $Users->userData['lang'] . '.utf8';
     } else {
-        $locale = $Update->Config->configArr['lang'] . '.utf8';
+        $Users = new Users();
+        // load server configured lang if logged out
+        $locale = $Config->configArr['lang'] . '.utf8';
     }
+
+    // CONFIGURE GETTEXT
     $domain = 'messages';
     putenv("LC_ALL=$locale");
     $res = setlocale(LC_ALL, $locale);
@@ -62,70 +83,36 @@ try {
     textdomain($domain);
     // END i18n
 
-    // TWIG
-    $loader = new \Twig_Loader_Filesystem(ELAB_ROOT . 'app/tpl');
-    $twig = new \Twig_Environment($loader);
-    $cache = ELAB_ROOT . 'uploads/tmp';
-    $options = array();
 
-    // enable cache if not in debug (dev) mode
-    if (!$Update->Config->configArr['debug']) {
-        $options = array('cache' => $cache);
-    }
-    $twig = new \Twig_Environment($loader, $options);
+    // INIT APP OBJECT
+    $App = new App($Request, $Config, new Logs(), $Users);
 
-    // custom twig filters |msg and |kdate
-    $filterOptions = array('is_safe' => array('html'));
-    $msgFilter = new \Twig_SimpleFilter('msg', '\Elabftw\Elabftw\Tools::displayMessage', $filterOptions);
-    $dateFilter = new \Twig_SimpleFilter('kdate', '\Elabftw\Elabftw\Tools::formatDate', $filterOptions);
-    $twig->addFilter($msgFilter);
-    $twig->addFilter($dateFilter);
-
-    // i18n for twig
-    $twig->addExtension(new \Twig_Extensions_Extension_I18n());
-
-    // run the update script if we have the wrong schema version
-    if ($Update->Config->configArr['schema'] < $Update::REQUIRED_SCHEMA) {
-        try {
-            $_SESSION['ok'] = $Update->runUpdateScript();
-        } catch (Exception $e) {
-            $_SESSION['ko'][] = 'Error updating: ' . $e->getMessage();
+    // UPDATE SQL SCHEMA
+    $Update = new Update($App->Config);
+    try {
+        $messages = $Update->runUpdateScript();
+        if (is_array($messages)) {
+            foreach ($messages as $msg) {
+                $App->Session->getFlashBag()->add('ok', $msg);
+            }
         }
+    } catch (Exception $e) {
+        $App->Session->getFlashBag()->add('ko', 'Error updating: ' . $e->getMessage());
     }
 
-    // pages where you don't need to be logged in
-    // reset.php is in fact app/reset.php but we use basename so...
-    $nologinArr = array(
-        'change-pass.php',
-        'index.php',
-        'login.php',
-        'LoginController.php',
-        'metadata.php',
-        'register.php',
-        'RegisterController.php',
-        'reset.php',
-        'ResetPasswordController.php'
-    );
+    // CERBERUS
+    if (!$Auth->isAuth()) {
+        // maybe we clicked an email link and we want to be redirected to the page upon successful login
+        // so we store the url in a cookie expiring in 5 minutes to redirect to it after login
+        setcookie('redirect', $Request->getRequestUri(), time() + 300, '/', null, true, true);
 
-    if (!isset($_SESSION['auth']) && !in_array(basename($_SERVER['SCRIPT_FILENAME']), $nologinArr)) {
-        // try to login with the cookie
-        $Auth = new Auth();
-        if (!$Auth->loginWithCookie()) {
-            // maybe we clicked an email link and we want to be redirected to the page upon successful login
-            // so we store the url in a cookie expiring in 5 minutes to redirect to it after login
-            $host = $_SERVER['HTTP_HOST'];
-            $script = $_SERVER['SCRIPT_NAME'];
-            $params = '?' . $_SERVER['QUERY_STRING'];
-            $url = 'https://' . $host . Tools::getServerPort() . $script . $params;
-            // remove trailing ? if there was no query string
-            $url = rtrim($url, '?');
-
-            setcookie('redirect', $url, time() + 300, '/', null, true, true);
-
-            header('location: app/logout.php');
-            exit;
-        }
+        // also don't redirect blindly to https because we might be in http (after install)
+        $url = $Request->getScheme() . '://' . $Request->getHttpHost() . '/app/logout.php';
+        header('Location: ' . $url);
+        exit;
     }
+
 } catch (Exception $e) {
-    echo $e->getMessage();
+    // if something went wrong here it should stop whatever is after
+    die($e->getMessage());
 }

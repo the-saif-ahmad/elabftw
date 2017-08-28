@@ -13,15 +13,18 @@ namespace Elabftw\Elabftw;
 /**
  * All about the templates
  */
-class Templates
+class Templates extends AbstractEntity
 {
     use EntityTrait;
 
-    /** pdo object */
-    protected $pdo;
+    /** @var Db $Db SQL Database */
+    protected $Db;
 
-    /** instance of Users */
+    /** @var Users $Users instance of Users */
     public $Users;
+
+    /** @var string $type almost the database table… */
+    public $type = 'experiments_tpl';
 
     /**
      * Give me the team on init
@@ -31,11 +34,7 @@ class Templates
      */
     public function __construct(Users $users, $id = null)
     {
-        $this->pdo = Db::getConnection();
-        $this->Users = $users;
-        if (!is_null($id)) {
-            $this->setId($id);
-        }
+        parent::__construct($users, $id);
     }
 
     /**
@@ -56,7 +55,7 @@ class Templates
         $body = Tools::checkBody($body);
 
         $sql = "INSERT INTO experiments_templates(team, name, body, userid) VALUES(:team, :name, :body, :userid)";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':team', $team);
         $req->bindParam(':name', $name);
         $req->bindParam('body', $body);
@@ -89,8 +88,8 @@ class Templates
      */
     public function read()
     {
-        $sql = "SELECT name, body FROM experiments_templates WHERE id = :id AND team = :team";
-        $req = $this->pdo->prepare($sql);
+        $sql = "SELECT name, body, userid FROM experiments_templates WHERE id = :id AND team = :team";
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':id', $this->id);
         $req->bindParam(':team', $this->Users->userData['team']);
         $req->execute();
@@ -105,8 +104,14 @@ class Templates
      */
     public function readFromUserid()
     {
-        $sql = "SELECT id, body, name FROM experiments_templates WHERE userid = :userid ORDER BY ordering ASC";
-        $req = $this->pdo->prepare($sql);
+        $sql = "SELECT experiments_templates.id,
+            experiments_templates.body,
+            experiments_templates.name,
+            GROUP_CONCAT(tagt.tag SEPARATOR '|') as tags, GROUP_CONCAT(tagt.id) as tags_id
+            FROM experiments_templates
+            LEFT JOIN experiments_tpl_tags AS tagt ON (experiments_templates.id = tagt.item_id)
+            WHERE experiments_templates.userid = :userid group by experiments_templates.id ORDER BY experiments_templates.ordering ASC";
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':userid', $this->Users->userid);
         $req->execute();
 
@@ -119,14 +124,19 @@ class Templates
      *
      * @return string body of the common template
      */
-    public function readCommon()
+    public function readCommonBody()
     {
-        $sql = "SELECT * FROM experiments_templates WHERE userid = 0 AND team = :team LIMIT 1";
-        $req = $this->pdo->prepare($sql);
+        // don't load the common template if you are using markdown because it's probably in html
+        if ($this->Users->userData['use_markdown']) {
+            return "";
+        }
+
+        $sql = "SELECT body FROM experiments_templates WHERE userid = 0 AND team = :team LIMIT 1";
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':team', $this->Users->userData['team']);
         $req->execute();
 
-        return $req->fetch();
+        return $req->fetchColumn();
     }
 
     /**
@@ -143,7 +153,7 @@ class Templates
             team = :team,
             body = :body
             WHERE userid = 0 AND team = :team";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':team', $this->Users->userData['team']);
         $req->bindParam(':body', $body);
 
@@ -168,7 +178,7 @@ class Templates
             name = :name,
             body = :body
             WHERE userid = :userid AND id = :id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':name', $name);
         $req->bindParam(':body', $body);
         $req->bindParam(':userid', $this->Users->userid);
@@ -180,17 +190,43 @@ class Templates
     /**
      * Delete template
      *
-     * @param int $id ID of the template
-     * @param int $userid
      * @return bool
      */
-    public function destroy($id, $userid)
+    public function destroy()
     {
         $sql = "DELETE FROM experiments_templates WHERE id = :id AND userid = :userid";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':id', $id);
-        $req->bindParam(':userid', $userid);
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':id', $this->id);
+        $req->bindParam(':userid', $this->Users->userid);
+        $res1 = $req->execute();
 
-        return $req->execute();
+        $res2 = $this->Tags->destroyAll();
+
+        return $res1 && $res2;
+    }
+
+    /**
+     * No category for templates
+     *
+     * @param int $category
+     */
+    public function updateCategory($category)
+    {
+    }
+
+    /**
+     * No duplication for templates (yet!)
+     *
+     */
+    public function duplicate()
+    {
+    }
+
+    /**
+     * No locking option for templates
+     *
+     */
+    public function toggleLock()
+    {
     }
 }

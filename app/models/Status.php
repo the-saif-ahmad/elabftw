@@ -16,11 +16,14 @@ use Exception;
 /**
  * Things related to status in admin panel
  */
-class Status
+class Status extends AbstractCategory
 {
     use EntityTrait;
 
-    /** instance of Users */
+    /** @var Db $Db SQL Database */
+    protected $Db;
+
+    /** @var Users $Users instance of Users */
     public $Users;
 
     /**
@@ -31,7 +34,7 @@ class Status
     public function __construct(Users $users)
     {
         $this->Users = $users;
-        $this->pdo = Db::getConnection();
+        $this->Db = Db::getConnection();
     }
 
     /**
@@ -42,7 +45,7 @@ class Status
      * @param int $isTimestampable
      * @param int $default
      * @param int|null $team
-     * @return int id of the new item
+     * @return string id of the new item
      */
     public function create($name, $color, $isTimestampable = 1, $default = 0, $team = null)
     {
@@ -59,7 +62,7 @@ class Status
 
         $sql = "INSERT INTO status(name, color, team, is_timestampable, is_default)
             VALUES(:name, :color, :team, :is_timestampable, :is_default)";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':name', $name);
         $req->bindParam(':color', $color);
         $req->bindParam(':team', $team);
@@ -68,7 +71,7 @@ class Status
 
         $req->execute();
 
-        return $this->pdo->lastInsertId();
+        return $this->Db->lastInsertId();
     }
 
     /**
@@ -98,7 +101,7 @@ class Status
             status.is_timestampable,
             status.is_default
             FROM status WHERE team = :team ORDER BY ordering ASC";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':team', $this->Users->userData['team']);
         $req->execute();
 
@@ -108,14 +111,14 @@ class Status
     /**
      * Get the color of a status
      *
-     * @param int $status ID of the status
+     * @param int $id ID of the category
      * @return string
      */
-    public function readColor($status)
+    public function readColor($id)
     {
         $sql = "SELECT color FROM status WHERE id = :id";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':id', $status, PDO::PARAM_INT);
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':id', $id, PDO::PARAM_INT);
         $req->execute();
 
         return $req->fetchColumn();
@@ -130,7 +133,7 @@ class Status
     public function isTimestampable($status)
     {
          $sql = "SELECT is_timestampable FROM status WHERE id = :id";
-         $req = $this->pdo->prepare($sql);
+         $req = $this->Db->prepare($sql);
          $req->bindParam(':id', $status, PDO::PARAM_INT);
          $req->execute();
 
@@ -147,7 +150,7 @@ class Status
     private function setDefaultFalse()
     {
         $sql = "UPDATE status SET is_default = 0 WHERE team = :team";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':team', $this->Users->userData['team']);
 
         return $req->execute();
@@ -181,7 +184,7 @@ class Status
             is_default = :is_default
             WHERE id = :id AND team = :team";
 
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':name', $name);
         $req->bindParam(':color', $color);
         $req->bindParam(':is_timestampable', $isTimestampable);
@@ -198,10 +201,10 @@ class Status
      * @param int $id
      * @return int
      */
-    private function countExperiments($id)
+    protected function countItems($id)
     {
         $sql = "SELECT COUNT(*) FROM experiments WHERE status = :status";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':status', $id, PDO::PARAM_INT);
         $req->execute();
 
@@ -217,14 +220,22 @@ class Status
     public function destroy($id)
     {
         // don't allow deletion of a status with experiments
-        if ($this->countExperiments($id) > 0) {
+        if ($this->countItems($id) > 0) {
             throw new Exception(_("Remove all experiments with this status before deleting this status."));
         }
 
         $sql = "DELETE FROM status WHERE id = :id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':id', $id);
 
         return $req->execute();
+    }
+
+    /**
+     * Not implemented
+     *
+     */
+    public function destroyAll()
+    {
     }
 }

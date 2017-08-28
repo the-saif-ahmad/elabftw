@@ -1,6 +1,6 @@
 <?php
 /**
- * \Elabftw\Elabftw\Import
+ * \Elabftw\Elabftw\AbstractImport
  *
  * @author Nicolas CARPi <nicolas.carpi@curie.fr>
  * @copyright 2012 Nicolas CARPi
@@ -10,12 +10,12 @@
  */
 namespace Elabftw\Elabftw;
 
-use \Exception;
+use Exception;
 
 /**
  * Mother class of ImportCsv and ImportZip
  */
-abstract class Import
+abstract class AbstractImport
 {
     /**
      * Read the file input

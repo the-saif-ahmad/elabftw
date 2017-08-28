@@ -16,36 +16,24 @@ use Datetime;
 /**
  * Experiments View
  */
-class ExperimentsView extends EntityView
+class ExperimentsView
 {
-    /** instance of TeamGroups */
+    /** @var Experiments $Entity our Experiments instance */
+    public $Entity;
+
+    /** @var TeamGroups $TeamGroups instance of TeamGroups */
     public $TeamGroups;
 
     /**
      * Need an instance of Experiments
      *
-     * @param Entity $entity
+     * @param Experiments $entity
      * @throws Exception
      */
-    public function __construct(Entity $entity)
+    public function __construct(Experiments $entity)
     {
         $this->Entity = $entity;
-        $this->limit = $this->Entity->Users->userData['limit_nb'];
-        $this->showTeam = $this->Entity->Users->userData['show_team'];
-
-        $this->TeamGroups = new TeamGroups($this->Entity->Users->userData['team']);
-    }
-
-    /**
-     * View experiment
-     *
-     * @return string HTML for viewXP
-     */
-    public function view()
-    {
-        $this->html .= $this->UploadsView->buildUploads('view');
-
-        return $this->html;
+        $this->TeamGroups = new TeamGroups($this->Entity->Users);
     }
 
     /**
@@ -68,17 +56,17 @@ class ExperimentsView extends EntityView
      */
     public function showTimestamp()
     {
-        $Users = new Users();
-        $timestamper = $Users->read($this->Entity->entityData['timestampedby']);
+        $UploadsView = new UploadsView($this->Entity->Uploads);
+        $timestamper = $this->Entity->Users->read($this->Entity->entityData['timestampedby']);
 
-        $this->UploadsView->Uploads->Entity->type = 'exp-pdf-timestamp';
-        $pdf = $this->UploadsView->Uploads->readAll();
+        $UploadsView->Uploads->Entity->type = 'exp-pdf-timestamp';
+        $pdf = $UploadsView->Uploads->readAll();
 
-        $this->UploadsView->Uploads->Entity->type = 'timestamp-token';
-        $token = $this->UploadsView->Uploads->readAll();
+        $UploadsView->Uploads->Entity->type = 'timestamp-token';
+        $token = $UploadsView->Uploads->readAll();
 
         // set correct type back
-        $this->UploadsView->Uploads->Entity->type = 'experiments';
+        $UploadsView->Uploads->Entity->type = 'experiments';
 
         $date = new DateTime($this->Entity->entityData['timestampedwhen']);
 

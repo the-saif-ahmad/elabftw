@@ -10,19 +10,17 @@
  */
 namespace Elabftw\Elabftw;
 
+
 /**
  * Generate and display a tag cloud for a given user
  */
 class TagCloud
 {
-    /** id of our user */
+    /** @var Db $Db SQL Database */
+    private $Db;
+
+    /** @var string $userid id of our user */
     private $userid;
-
-    /** pdo object */
-    private $pdo;
-
-    /** tag + class */
-    public $cloudArr = array();
 
     /**
      * Init the object with a userid
@@ -32,8 +30,7 @@ class TagCloud
     public function __construct($userid)
     {
         $this->userid = $userid;
-        $this->pdo = Db::getConnection();
-        $this->setCloudArr();
+        $this->Db = Db::getConnection();
     }
 
     /**
@@ -47,7 +44,7 @@ class TagCloud
             FROM experiments_tags
             WHERE userid = :userid
             GROUP BY tag ORDER BY total DESC";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':userid', $this->userid);
         $req->execute();
 
@@ -67,10 +64,11 @@ class TagCloud
     }
 
     /**
-     * Create an array with tag => css class for cloud
+     * Create an array with tag => css class for tag cloud in profile
      *
+     * @return array
      */
-    private function setCloudArr()
+    public function getCloudArr()
     {
         $tags = $this->readAll();
         $first = reset($tags);
@@ -85,12 +83,15 @@ class TagCloud
         shuffle($tags);
 
         // fill the array
+        $cloudArr = array();
         foreach ($tags as $tag) {
             // calculate ratio
             $ratio = floor((($tag['total'] - $last['total']) / $spread) * 100);
             // assign a class: font size will be different depending on ratio
             $cssClass = $this->getClassFromRatio($ratio);
-            $this->cloudArr[$tag['tag']] = $cssClass;
+            $cloudArr[$tag['tag']] = $cssClass;
         }
+
+        return $cloudArr;
     }
 }

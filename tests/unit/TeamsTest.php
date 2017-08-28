@@ -7,7 +7,8 @@ class TeamsTest extends \PHPUnit_Framework_TestCase
 {
     protected function setUp()
     {
-        $this->Teams= new Teams(1);
+        $Users = new Users(1);
+        $this->Teams= new Teams($Users);
     }
 
     public function testCreate()
@@ -69,7 +70,8 @@ class TeamsTest extends \PHPUnit_Framework_TestCase
 
     public function testDestroy()
     {
-        $this->assertTrue($this->Teams->destroy(2));
+        $id = $this->Teams->create('Destroy me');
+        $this->assertTrue($this->Teams->destroy($id));
         // try to destroy a team with data
         $this->assertFalse($this->Teams->destroy(1));
     }
@@ -78,6 +80,6 @@ class TeamsTest extends \PHPUnit_Framework_TestCase
     {
         $stats = $this->Teams->getAllStats();
         $this->assertTrue(is_array($stats));
-        $this->assertEquals(1, $stats['totusers']);
+        $this->assertEquals(2, $stats['totusers']);
     }
 }

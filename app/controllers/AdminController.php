@@ -11,39 +11,37 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
- * Deal with ajax requests sent from the admin page
+ * Deal with requests sent from the admin page
  *
  */
 try {
     require_once '../../app/init.inc.php';
 
-    $redirect = false;
-
-    if (!$_SESSION['is_admin']) {
+    if (!$Session->get('is_admin')) {
         throw new Exception('Non admin user tried to access admin panel.');
     }
 
+    $Response = new JsonResponse();
+
     // UPDATE ORDERING
-    if (isset($_POST['updateOrdering'])) {
-        if ($_POST['table'] === 'status') {
+    if ($Request->request->has('updateOrdering')) {
+        if ($Request->request->get('table') === 'status') {
             $Entity = new Status($Users);
-        } elseif ($_POST['table'] === 'items_types') {
+        } elseif ($Request->request->get('table') === 'items_types') {
             $Entity = new ItemsTypes($Users);
-        } elseif ($_POST['table'] === 'experiments_templates') {
-            // remove the create new entry
-            unset($_POST['ordering'][0]);
-            $Entity = new Templates($Users);
         }
 
-        if ($Entity->updateOrdering($_POST)) {
-            echo json_encode(array(
+        if ($Entity->updateOrdering($Request->request->all())) {
+            $Response->setData(array(
                 'res' => true,
                 'msg' => _('Saved')
             ));
         } else {
-            echo json_encode(array(
+            $Response->setData(array(
                 'res' => false,
                 'msg' => Tools::error()
             ));
@@ -51,36 +49,44 @@ try {
     }
 
     // UPDATE TEAM SETTINGS
-    if (isset($_POST['teamsUpdateFull'])) {
-        $redirect = true;
-        $Teams = new Teams($_SESSION['team_id']);
-        if ($Teams->update($_POST)) {
-            $_SESSION['ok'][] = _('Configuration updated successfully.');
+    if ($Request->request->has('teamsUpdateFull')) {
+        $Teams = new Teams($Users);
+        if ($Teams->update($Request->request->all())) {
+            $Session->getFlashBag()->add('ok', _('Configuration updated successfully.'));
         } else {
-            $_SESSION['ko'][] = _('An error occurred!');
+            $Session->getFlashBag()->add('ko', Tools::error());
         }
+        $Response = new RedirectResponse("../../admin.php?tab=1");
     }
 
     // CLEAR STAMP PASS
-    if (isset($_GET['clearStamppass']) && $_GET['clearStamppass'] === '1') {
-        $redirect = true;
-        $Teams = new Teams($_SESSION['team_id']);
+    if ($Request->query->get('clearStamppass')) {
+        $Teams = new Teams($Users);
         if (!$Teams->destroyStamppass()) {
             throw new Exception('Error clearing the timestamp password');
         }
+        $Session->getFlashBag()->add('ok', _('Configuration updated successfully.'));
+        $Response = new RedirectResponse("../../admin.php?tab=1");
     }
 
     // UPDATE COMMON TEMPLATE
-    if (isset($_POST['commonTplUpdate'])) {
+    if ($Request->request->has('commonTplUpdate')) {
         $Templates = new Templates($Users);
-        $Templates->updateCommon($_POST['commonTplUpdate']);
+        if ($Templates->updateCommon($Request->request->get('commonTplUpdate'))) {
+            $Response->setData(array(
+                'res' => true,
+                'msg' => _('Saved')
+            ));
+        } else {
+            $Response->setData(array(
+                'res' => false,
+                'msg' => Tools::error()
+            ));
+        }
     }
 
-    if ($redirect) {
-        header('Location: ../../admin.php?tab=1');
-    }
+    $Response->send();
 
 } catch (Exception $e) {
-    $Logs = new Logs();
-    $Logs->create('Error', $_SESSION['userid'], $e->getMessage());
+    $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
 }

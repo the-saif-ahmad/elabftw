@@ -13,15 +13,17 @@ namespace Elabftw\Elabftw;
 /**
  * All about the team's scheduler
  */
-class Scheduler extends Entity
+class Scheduler
 {
-    /** pdo object */
-    protected $pdo;
+    use EntityTrait;
 
-    /** instance of Database */
+    /** @var Db $Db SQL Database */
+    protected $Db;
+
+    /** @var Database $Database instance of Database */
     public $Database;
 
-    /** data array for item if it's selected */
+    /** @var array $itemData data array for item if it's selected */
     public $itemData;
 
     /**
@@ -31,7 +33,7 @@ class Scheduler extends Entity
      */
     public function __construct(Database $database)
     {
-        $this->pdo = Db::getConnection();
+        $this->Db = Db::getConnection();
         $this->Database = $database;
     }
 
@@ -58,7 +60,7 @@ class Scheduler extends Entity
 
         $sql = "INSERT INTO team_events(team, item, start, end, userid, title)
             VALUES(:team, :item, :start, :end, :userid, :title)";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':team', $this->Database->Users->userData['team']);
         $req->bindParam(':item', $this->Database->id);
         $req->bindParam(':start', $start);
@@ -70,9 +72,9 @@ class Scheduler extends Entity
     }
 
     /**
-     * Return a JSON string with events for this item
+     * Return an array with events for this item
      *
-     * @return string JSON
+     * @return array
      */
     public function read()
     {
@@ -82,12 +84,12 @@ class Scheduler extends Entity
             FROM team_events
             LEFT JOIN users AS u ON team_events.userid = u.userid
             WHERE team_events.team = :team AND team_events.item = :item";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':team', $this->Database->Users->userData['team']);
         $req->bindParam(':item', $this->Database->id);
         $req->execute();
 
-        return json_encode($req->fetchall());
+        return $req->fetchall();
     }
 
     /**
@@ -98,7 +100,7 @@ class Scheduler extends Entity
     public function readFromId()
     {
         $sql = "SELECT * from team_events WHERE id = :id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':id', $this->id);
         $req->execute();
 
@@ -106,16 +108,18 @@ class Scheduler extends Entity
     }
 
     /**
-     * Update the start of an event (when you drag and drop it)
+     * Update the start (and end) of an event (when you drag and drop it)
      *
      * @param string $start 2016-07-22T13:37:00
+     * @param string $end 2016-07-22T13:37:00
      * @return bool
      */
-    public function updateStart($start)
+    public function updateStart($start, $end)
     {
-        $sql = "UPDATE team_events SET start = :start WHERE team = :team AND id = :id";
-        $req = $this->pdo->prepare($sql);
+        $sql = "UPDATE team_events SET start = :start, end = :end WHERE team = :team AND id = :id";
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':start', $start);
+        $req->bindParam(':end', $end);
         $req->bindParam(':team', $this->Database->Users->userData['team']);
         $req->bindParam(':id', $this->id);
 
@@ -131,7 +135,7 @@ class Scheduler extends Entity
     public function updateEnd($end)
     {
         $sql = "UPDATE team_events SET end = :end WHERE team = :team AND id = :id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':end', $end);
         $req->bindParam(':team', $this->Database->Users->userData['team']);
         $req->bindParam(':id', $this->id);
@@ -147,7 +151,7 @@ class Scheduler extends Entity
     public function destroy()
     {
         $sql = "DELETE FROM team_events WHERE id = :id AND userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':id', $this->id);
         $req->bindParam(':userid', $this->Database->Users->userid);
 

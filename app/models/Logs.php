@@ -15,10 +15,10 @@ use Exception;
 /**
  * All about the teams
  */
-class Logs
+class Logs implements CrudInterface
 {
-    /** pdo object */
-    protected $pdo;
+    /** @var Db $Db SQL Database */
+    protected $Db;
 
     /**
      * Constructor
@@ -27,7 +27,7 @@ class Logs
      */
     public function __construct()
     {
-        $this->pdo = Db::getConnection();
+        $this->Db = Db::getConnection();
     }
 
     /**
@@ -41,7 +41,7 @@ class Logs
     public function create($type, $user, $body)
     {
         $sql = "INSERT INTO logs (type, user, body) VALUES (:type, :user, :body)";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':type', $type);
         $req->bindParam(':user', $user);
         $req->bindParam(':body', $body);
@@ -54,13 +54,22 @@ class Logs
      *
      * @return array
      */
-    public function read()
+    public function readAll()
     {
         $sql = "SELECT * FROM logs ORDER BY id DESC LIMIT 100";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->execute();
 
         return $req->fetchAll();
+    }
+
+    /**
+     * Not implemented
+     *
+     * @param $id
+     */
+    public function destroy($id)
+    {
     }
 
     /**
@@ -68,10 +77,10 @@ class Logs
      *
      * @return bool
      */
-    public function destroy()
+    public function destroyAll()
     {
         $sql = "DELETE FROM logs";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
 
         return $req->execute();
     }

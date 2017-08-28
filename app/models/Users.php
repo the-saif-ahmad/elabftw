@@ -13,35 +13,46 @@ namespace Elabftw\Elabftw;
 use PDO;
 use Exception;
 use Swift_Message;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Users
  */
-class Users extends Auth
+class Users
 {
-    /** instance of Config */
+    /** @var Auth $Auth instance of Auth */
+    private $Auth;
+
+    /** @var Config $Config instance of Config */
     public $Config;
 
-    /** flag to check if we need validation or not */
+    /** @var Db $Db SQL Database */
+    protected $Db;
+
+    /** @var bool $needValidation flag to check if we need validation or not */
     public $needValidation = false;
 
-    /** what you get when you read() */
+    /** @var array $userData what you get when you read() */
     public $userData;
 
-    /** our userid */
+    /** @var string $userid our userid */
     public $userid;
 
     /**
      * Constructor
      *
      * @param int|null $userid
+     * @param Auth|null $auth
      * @param Config|null $config
      */
-    public function __construct($userid = null, Config $config = null)
+    public function __construct($userid = null, Auth $auth = null, Config $config = null)
     {
-        $this->pdo = Db::getConnection();
+        $this->Db = Db::getConnection();
         if (!is_null($userid)) {
             $this->setId($userid);
+        }
+        if (!is_null($auth)) {
+            $this->Auth = $auth;
         }
         if (!is_null($config)) {
             $this->Config = $config;
@@ -66,7 +77,7 @@ class Users extends Auth
      * Populate userData with read()
      *
      */
-    public function populate()
+    private function populate()
     {
         $this->userData = $this->read($this->userid);
     }
@@ -88,15 +99,13 @@ class Users extends Auth
             throw new Exception(_('Someone is already using that email address!'));
         }
 
-        if (!$this->checkPasswordLength($password) && strlen($password) > 0) {
+        if (!$this->Auth->checkPasswordLength($password) && strlen($password) > 0) {
             $error = sprintf(_('Password must contain at least %s characters.'), self::MIN_PASSWORD_LENGTH);
             throw new Exception($error);
         }
 
-        // Put firstname lowercase and first letter uppercase
-        $firstname = Tools::purifyFirstname($firstname);
-        // lastname is uppercase
-        $lastname = Tools::purifyLastname($lastname);
+        $firstname = filter_var($firstname, FILTER_SANITIZE_STRING);
+        $lastname = filter_var($lastname, FILTER_SANITIZE_STRING);
 
         // Create salt
         $salt = hash("sha512", uniqid(rand(), true));
@@ -134,7 +143,7 @@ class Users extends Auth
             :register_date,
             :validated,
             :lang);";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
 
         $req->bindParam(':email', $email);
         $req->bindParam(':team', $team);
@@ -152,7 +161,9 @@ class Users extends Auth
         }
 
         if ($validated == '0') {
-            $this->alertAdmin($team);
+            $Email = new Email($this->Config);
+            $Email->alertAdmin($team);
+            // set a flag to show correct message to user
             $this->needValidation = true;
         }
 
@@ -194,39 +205,6 @@ class Users extends Auth
     }
 
     /**
-     * Send an email to the admin of a team
-     *
-     * @param int $team
-     * @throws Exception
-     */
-    private function alertAdmin($team)
-    {
-        $Email = new Email($this->Config);
-
-        // Create the message
-        $footer = "\n\n~~~\nSent from eLabFTW https://www.elabftw.net\n";
-        $message = Swift_Message::newInstance()
-        // Give the message a subject
-        ->setSubject(_('[eLabFTW] New user registered'))
-        // Set the From address with an associative array
-        ->setFrom(array($this->Config->configArr['mail_from'] => 'eLabFTW'))
-        // Set the To
-        ->setTo($this->getAdminEmail($team))
-        // Give it a body
-        ->setBody(_('Hi. A new user registered on elabftw. Head to the admin panel to validate the account.') . $footer);
-        // generate Swift_Mailer instance
-        $mailer = $Email->getMailer();
-        // SEND EMAIL
-        try {
-            $mailer->send($message);
-        } catch (Exception $e) {
-            $Logs = new Logs();
-            $Logs->create('Error', 'smtp', $e->getMessage());
-            throw new Exception(_('Could not send email to inform admin. Error was logged. Contact an admin directly to validate your account.'));
-        }
-    }
-
-    /**
      * Check we have not a duplicate email in DB
      *
      * @param string $email
@@ -235,7 +213,7 @@ class Users extends Auth
     public function isDuplicateEmail($email)
     {
         $sql = "SELECT email FROM users WHERE email = :email";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':email', $email);
         $req->execute();
 
@@ -250,7 +228,7 @@ class Users extends Auth
     private function isFirstUser()
     {
         $sql = "SELECT COUNT(*) AS usernb FROM users";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->execute();
         $test = $req->fetch();
 
@@ -266,40 +244,12 @@ class Users extends Auth
     private function isFirstUserInTeam($team)
     {
         $sql = "SELECT COUNT(*) AS usernb FROM users WHERE team = :team";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':team', $team);
         $req->execute();
         $test = $req->fetch();
 
         return $test['usernb'] === '0';
-    }
-
-    /**
-     * Fetch the email(s) of the admin(s) for a team
-     *
-     * @param int $team
-     * @return array
-     */
-    private function getAdminEmail($team)
-    {
-        // array for storing email adresses of admin(s)
-        $arr = array();
-
-        $sql = "SELECT email FROM users WHERE (`usergroup` = 1 OR `usergroup` = 2) AND `team` = :team";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':team', $team);
-        $req->execute();
-
-        while ($email = $req->fetchColumn()) {
-            $arr[] = $email;
-        }
-
-        // if we have only one admin, we need to have an associative array
-        if (count($arr) === 1) {
-            return array($arr[0] => 'Admin eLabFTW');
-        }
-
-        return $arr;
     }
 
     /**
@@ -310,10 +260,11 @@ class Users extends Auth
      */
     public function read($userid)
     {
-        $sql = "SELECT users.*, CONCAT(users.firstname, ' ', users.lastname) AS fullname, groups.can_lock FROM users
+        $sql = "SELECT users.*, CONCAT(users.firstname, ' ', users.lastname) AS fullname,
+            groups.can_lock, groups.is_admin, groups.is_sysadmin FROM users
             LEFT JOIN groups ON groups.group_id = users.usergroup
             WHERE users.userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':userid', $userid);
         $req->execute();
 
@@ -328,8 +279,8 @@ class Users extends Auth
      */
     public function readFromEmail($email)
     {
-        $sql = "SELECT userid, CONCAT(firstname, ' ', lastname) AS fullname FROM users WHERE email = :email";
-        $req = $this->pdo->prepare($sql);
+        $sql = "SELECT userid, CONCAT(firstname, ' ', lastname) AS fullname, team FROM users WHERE email = :email";
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':email', $email);
         $req->execute();
 
@@ -344,7 +295,7 @@ class Users extends Auth
     public function readFromApiKey($apiKey)
     {
         $sql = "SELECT userid FROM users WHERE api_key = :key";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':key', $apiKey);
         $req->execute();
 
@@ -361,20 +312,25 @@ class Users extends Auth
     /**
      * Read all users from the team
      *
-     * @param int $team
-     * @param int $validated
+     * @param int|null $validated
      * @return array
      */
-    public function readAllFromTeam($team, $validated = 1)
+    public function readAllFromTeam($validated = null)
     {
+        $valSql = '';
+        if (is_int($validated)) {
+            $valSql = " users.validated = :validated AND ";
+        }
         $sql = "SELECT users.*, CONCAT (users.firstname, ' ', users.lastname) AS fullname,
             teams.team_name AS teamname
             FROM users
             LEFT JOIN teams ON (users.team = teams.team_id)
-            WHERE users.validated = :validated AND users.team = :team";
-        $req = $this->pdo->prepare($sql);
-        $req->bindValue(':validated', $validated);
-        $req->bindValue(':team', $team);
+            WHERE " . $valSql . " users.team = :team";
+        $req = $this->Db->prepare($sql);
+        if (is_int($validated)) {
+            $req->bindValue(':validated', $validated);
+        }
+        $req->bindValue(':team', $this->userData['team']);
         $req->execute();
 
         return $req->fetchAll();
@@ -391,7 +347,7 @@ class Users extends Auth
             FROM users
             LEFT JOIN teams ON (users.team = teams.team_id)
             ORDER BY users.team ASC, users.usergroup ASC, users.lastname ASC";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->execute();
 
         return $req->fetchAll();
@@ -405,7 +361,7 @@ class Users extends Auth
     public function getAllEmails()
     {
         $sql = "SELECT email FROM users WHERE validated = 1";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->execute();
 
         return $req->fetchAll();
@@ -426,11 +382,8 @@ class Users extends Auth
             throw new Exception(_('The id parameter is not valid!'));
         }
 
-        // Put everything lowercase and first letter uppercase
-        $firstname = Tools::purifyFirstname($params['firstname']);
-        // Lastname in uppercase
-        $lastname = Tools::purifyLastname($params['lastname']);
-
+        $firstname = filter_var($params['firstname'], FILTER_SANITIZE_STRING);
+        $lastname = filter_var($params['lastname'], FILTER_SANITIZE_STRING);
         $email = filter_var($params['email'], FILTER_SANITIZE_EMAIL);
 
         if ($params['validated'] == 1) {
@@ -444,7 +397,7 @@ class Users extends Auth
         }
 
         // a non sysadmin cannot put someone sysadmin
-        if ($usergroup == 1 && $_SESSION['is_sysadmin'] != 1) {
+        if ($usergroup == 1 && $this->userData['is_sysadmin'] != 1) {
             throw new Exception(_('Only a sysadmin can put someone sysadmin.'));
         }
 
@@ -459,7 +412,7 @@ class Users extends Auth
             usergroup = :usergroup,
             validated = :validated
             WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':firstname', $firstname);
         $req->bindParam(':lastname', $lastname);
         $req->bindParam(':email', $email);
@@ -486,6 +439,25 @@ class Users extends Auth
                 'max_range' => 500
             ));
         $new_limit = filter_var($params['limit'], FILTER_VALIDATE_INT, $filter_options);
+
+        // ORDER BY
+        $new_orderby = null;
+        $whitelistOrderby = array(null, 'cat', 'date', 'title', 'comment');
+        if (isset($params['orderby']) && in_array($params['orderby'], $whitelistOrderby)) {
+            $new_orderby = $params['orderby'];
+        }
+
+        // SORT
+        $new_sort = 'desc';
+        if (isset($params['sort']) && ($params['sort'] === 'asc' || $params['sort'] === 'desc')) {
+            $new_sort = $params['sort'];
+        }
+
+        // LAYOUT
+        $new_layout = 0;
+        if (isset($params['single_column_layout']) && $params['single_column_layout'] === 'on') {
+            $new_layout = 1;
+        }
 
         // KEYBOARD SHORTCUTS
         // only take first letter
@@ -517,6 +489,19 @@ class Users extends Auth
         if (isset($params['close_warning']) && $params['close_warning'] === 'on') {
             $new_close_warning = 1;
         }
+
+        // CJK FONTS
+        $new_cjk_fonts = 0;
+        if (isset($params['cjk_fonts']) && $params['cjk_fonts'] === 'on') {
+            $new_cjk_fonts = 1;
+        }
+
+        // USE MARKDOWN
+        $new_use_markdown = 0;
+        if (isset($params['use_markdown']) && $params['use_markdown'] === 'on') {
+            $new_use_markdown = 1;
+        }
+
         // CHEM EDITOR
         $new_chem_editor = 0;
         if (isset($params['chem_editor']) && $params['chem_editor'] === 'on') {
@@ -538,6 +523,8 @@ class Users extends Auth
 
         $sql = "UPDATE users SET
             limit_nb = :new_limit,
+            orderby = :new_orderby,
+            sort = :new_sort,
             sc_create = :new_sc_create,
             sc_edit = :new_sc_edit,
             sc_submit = :new_sc_submit,
@@ -546,10 +533,15 @@ class Users extends Auth
             close_warning = :new_close_warning,
             chem_editor = :new_chem_editor,
             lang = :new_lang,
-            default_vis = :new_default_vis
+            default_vis = :new_default_vis,
+            single_column_layout = :new_layout,
+            cjk_fonts = :new_cjk_fonts,
+            use_markdown = :new_use_markdown
             WHERE userid = :userid;";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':new_limit', $new_limit);
+        $req->bindParam(':new_orderby', $new_orderby);
+        $req->bindParam(':new_sort', $new_sort);
         $req->bindParam(':new_sc_create', $new_sc_create);
         $req->bindParam(':new_sc_edit', $new_sc_edit);
         $req->bindParam(':new_sc_submit', $new_sc_submit);
@@ -559,6 +551,9 @@ class Users extends Auth
         $req->bindParam(':new_chem_editor', $new_chem_editor);
         $req->bindParam(':new_lang', $new_lang);
         $req->bindParam(':new_default_vis', $new_default_vis);
+        $req->bindParam(':new_layout', $new_layout);
+        $req->bindParam(':new_cjk_fonts', $new_cjk_fonts);
+        $req->bindParam(':new_use_markdown', $new_use_markdown);
         $req->bindParam(':userid', $this->userid);
 
         return $req->execute();
@@ -572,13 +567,12 @@ class Users extends Auth
      */
     public function updateAccount($params)
     {
-        $Auth = new Auth();
         // check that we got the good password
-        if (!$Auth->checkCredentials($this->userData['email'], $params['currpass'])) {
+        if (!$this->Auth->checkCredentials($this->userData['email'], $params['currpass'])) {
             throw new Exception(_("Please input your current password!"));
         }
         // PASSWORD CHANGE
-        if (strlen($params['newpass']) >= Auth::MIN_PASSWORD_LENGTH) {
+        if (strlen($params['newpass']) >= $this->Auth::MIN_PASSWORD_LENGTH) {
             if ($params['newpass'] != $params['cnewpass']) {
                 throw new Exception(_('The passwords do not match!'));
             }
@@ -586,9 +580,8 @@ class Users extends Auth
             $this->updatePassword($params['newpass']);
         }
 
-        $params['firstname'] = Tools::purifyFirstname($params['firstname']);
-        $params['lastname'] = Tools::purifyLastname($params['lastname']);
-
+        $params['firstname'] = filter_var($params['firstname'], FILTER_SANITIZE_STRING);
+        $params['lastname'] = filter_var($params['lastname'], FILTER_SANITIZE_STRING);
         $params['email'] = filter_var($params['email'], FILTER_SANITIZE_EMAIL);
 
         if ($this->isDuplicateEmail($params['email']) && ($params['email'] != $this->userData['email'])) {
@@ -614,7 +607,7 @@ class Users extends Auth
             skype = :skype,
             website = :website
             WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
 
         $req->bindParam(':email', $params['email']);
         $req->bindParam(':firstname', $params['firstname']);
@@ -636,15 +629,15 @@ class Users extends Auth
      * @throws Exception if invalid character length
      * @return bool True if password is updated
      */
-    public function updatePassword($password, $userid = null)
+    private function updatePassword($password, $userid = null)
     {
 
         if (is_null($userid)) {
-            $userid = $_SESSION['userid'];
+            $userid = $this->userid;
         }
 
-        if (!$this->checkPasswordLength($password)) {
-            $error = sprintf(_('Password must contain at least %s characters.'), self::MIN_PASSWORD_LENGTH);
+        if (!$this->Auth->checkPasswordLength($password)) {
+            $error = sprintf(_('Password must contain at least %s characters.'), $this->Auth::MIN_PASSWORD_LENGTH);
             throw new Exception($error);
         }
 
@@ -652,7 +645,7 @@ class Users extends Auth
         $passwordHash = hash("sha512", $salt . $password);
 
         $sql = "UPDATE users SET salt = :salt, password = :password WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':salt', $salt);
         $req->bindParam(':password', $passwordHash);
         $req->bindParam(':userid', $userid);
@@ -674,7 +667,7 @@ class Users extends Auth
     private function invalidateToken($userid)
     {
         $sql = "UPDATE users SET token = null WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':userid', $userid);
 
         return $req->execute();
@@ -688,52 +681,25 @@ class Users extends Auth
      */
     public function validate($userid)
     {
-        $userid = Tools::checkId($userid);
-        if ($userid === false) {
-            throw new Exception('The id parameter is not valid!');
-        }
+        $this->setId($userid);
 
         $sql = "UPDATE users SET validated = 1 WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':userid', $this->userid);
 
-        // we read to get email of user
-        $userArr = $this->read($userid);
-
-        $req->bindParam(':userid', $userid, PDO::PARAM_INT);
-
-        // validate the user
         if ($req->execute()) {
-            $msg = _('Validated user with ID :') . ' ' . $userid;
+            $msg = sprintf(
+                _('User %s (%s) now has an active account.'),
+                $this->userData['fullname'],
+                $this->userData['email']
+            );
         } else {
             $msg = Tools::error();
         }
 
+        // send an email to the user
         $Email = new Email($this->Config);
-
-        // now let's get the URL so we can have a nice link in the email
-        $url = 'https://' . $_SERVER['SERVER_NAME'] . Tools::getServerPort() . $_SERVER['PHP_SELF'];
-        $url = str_replace('app/controllers/UsersController.php', 'login.php', $url);
-        // we send an email to each validated new user
-        $footer = "\n\n~~~\nSent from eLabFTW https://www.elabftw.net\n";
-        // Create the message
-        $message = Swift_Message::newInstance()
-        // Give the message a subject
-        // no i18n here
-        ->setSubject('[eLabFTW] Account validated')
-        // Set the From address with an associative array
-        ->setFrom(array($this->Config->configArr['mail_from'] => 'eLabFTW'))
-        // Set the To addresses with an associative array
-        ->setTo(array($userArr['email'] => 'eLabFTW'))
-        // Give it a body
-        ->setBody('Hello. Your account on eLabFTW was validated by an admin. Follow this link to login : ' . $url . $footer);
-        // generate Swift_Mailer instance
-        $mailer = $Email->getMailer();
-        // now we try to send the email
-        try {
-            $mailer->send($message);
-        } catch (Exception $e) {
-            throw new Exception(_('There was a problem sending the email! Error was logged.'));
-        }
+        $Email->alertUserIsValidated($this->userData['email']);
 
         return $msg;
     }
@@ -748,40 +714,39 @@ class Users extends Auth
     public function destroy($email, $password)
     {
         // check that we got the good password
-        $me = $this->read($_SESSION['userid']);
-        if (!$this->checkCredentials($me['email'], $password)) {
+        if (!$this->Auth->checkCredentials($this->userData['email'], $password)) {
             throw new Exception(_("Wrong password!"));
         }
-        // check the user is in our team and also get the userid
-        $useridArr = $this->emailInTeam($email, $_SESSION['team_id']);
-        $userid = $useridArr['userid'];
 
-        if (!$userid) {
+        // load data on the user to delete
+        $userToDelete = $this->readFromEmail($email);
+        // check we are in same team
+        if ($this->userData['team'] !== $userToDelete['team']) {
             throw new Exception(_('No user with this email or user not in your team'));
         }
 
         $result = array();
 
         $sql = "DELETE FROM users WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':userid', $userid, PDO::PARAM_INT);
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':userid', $userToDelete['userid']);
         $result[] = $req->execute();
 
         $sql = "DELETE FROM experiments_tags WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':userid', $userid, PDO::PARAM_INT);
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':userid', $userToDelete['userid']);
         $result[] = $req->execute();
 
         $sql = "DELETE FROM experiments WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':userid', $userid, PDO::PARAM_INT);
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':userid', $userToDelete['userid']);
         $result[] = $req->execute();
 
         // get all filenames
         $sql = "SELECT long_name FROM uploads WHERE userid = :userid AND type = :type";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->execute(array(
-            'userid' => $userid,
+            'userid' => $userToDelete['userid'],
             'type' => 'experiments'
         ));
         while ($uploads = $req->fetch()) {
@@ -791,29 +756,11 @@ class Users extends Auth
         }
 
         $sql = "DELETE FROM uploads WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':userid', $userid, PDO::PARAM_INT);
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':userid', $userToDelete['userid']);
         $result[] = $req->execute();
 
         return !in_array(0, $result);
-    }
-
-    /**
-     * Check if a user is in our team
-     *
-     * @param string $email
-     * @param int $team
-     * @return int|bool
-     */
-    private function emailInTeam($email, $team)
-    {
-        $sql = "SELECT userid FROM users WHERE email LIKE :email AND team = :team";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':email', $email);
-        $req->bindParam(':team', $team);
-        $req->execute();
-
-        return $req->fetch();
     }
 
     /**
@@ -824,18 +771,13 @@ class Users extends Auth
      */
     public function promoteSysadmin($email)
     {
-        // only sysadmin can do that
-        if (!$_SESSION['is_sysadmin']) {
-            throw new Exception(Tools::error(true));
-        }
-
         // check we have a valid email
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw new Exception('Email malformed');
         }
 
         $sql = "UPDATE users SET usergroup = 1 WHERE email = :email";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':email', $email);
 
         return $req->execute();
@@ -851,7 +793,7 @@ class Users extends Auth
         $apiKey = bin2hex(openssl_random_pseudo_bytes(42));
 
         $sql = "UPDATE users SET api_key = :api_key WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':api_key', $apiKey);
         $req->bindParam(':userid', $this->userid);
 

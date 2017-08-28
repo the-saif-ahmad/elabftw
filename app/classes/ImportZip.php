@@ -19,43 +19,41 @@ use FileSystemIterator;
 /**
  * Import a .elabftw.zip file into the database.
  */
-class ImportZip extends Import
+class ImportZip extends AbstractImport
 {
-    /** instance of Entity */
+    /** @var Users $Users instance of Users */
+    private $Users;
+
+    /** @var AbstractEntity $Entity instance of Entity */
     private $Entity;
 
-    /** instance of Uploads */
-    private $Uploads;
+    /** @var Db $Db SQL Database */
+    private $Db;
 
-    /** instance of Tags */
-    private $Tags;
-
-    /** pdo object */
-    private $pdo;
-
-    /** number of item we have inserted */
+    /** @var int $inserted number of item we have inserted */
     public $inserted = 0;
-    /** the folder where we extract the zip */
+
+    /** @var string $tmpPath the folder where we extract the zip */
     private $tmpPath;
-    /** an array with the data we want to import */
+
+    /** @var array $json an array with the data we want to import */
     private $json;
 
-    /** the target item type */
+    /** @var int $target the target item type */
     private $target;
 
-    /** experiments or items */
+    /** @var string $type experiments or items */
     private $type = 'items';
-
-    /** the newly created id of the imported item */
-    private $newItemId;
 
     /**
      * Constructor
      *
+     * @param Users $users
      */
-    public function __construct()
+    public function __construct(Users $users)
     {
-        $this->pdo = Db::getConnection();
+        $this->Db = Db::getConnection();
+        $this->Users = $users;
 
         $this->checkFileReadable();
         $this->checkMimeType();
@@ -79,8 +77,8 @@ class ImportZip extends Import
      */
     protected function openFile()
     {
-        $zip = new ZipArchive;
-        return $zip->open($this->getFilePath()) && $zip->extractTo($this->tmpPath);
+        $Zip = new ZipArchive;
+        return $Zip->open($this->getFilePath()) && $Zip->extractTo($this->tmpPath);
     }
 
     /**
@@ -100,13 +98,13 @@ class ImportZip extends Import
     /**
      * Select a status for our experiments.
      *
-     * @return int The default status of the team
+     * @return string The default status ID of the team
      */
     private function getDefaultStatus()
     {
         $sql = 'SELECT id FROM status WHERE team = :team AND is_default = 1';
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':team', $_SESSION['team_id']);
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':team', $this->Users->userData['team']);
         $req->execute();
         return $req->fetchColumn();
     }
@@ -127,18 +125,18 @@ class ImportZip extends Import
             $sql = "INSERT into experiments(team, title, date, body, userid, visibility, status, elabid)
                 VALUES(:team, :title, :date, :body, :userid, :visibility, :status, :elabid)";
         }
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':team', $_SESSION['team_id']);
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':team', $this->Users->userData['team']);
         $req->bindParam(':title', $item['title']);
         $req->bindParam(':date', $item['date']);
         $req->bindParam(':body', $item['body']);
         if ($this->type === 'items') {
-            $req->bindParam(':userid', $_SESSION['userid']);
+            $req->bindParam(':userid', $this->Users->userid);
             $req->bindParam(':type', $this->target);
         } else {
             $req->bindValue(':visibility', 'team');
             $req->bindValue(':status', $this->getDefaultStatus());
-            $req->bindParam(':userid', $this->target, \PDO::PARAM_INT);
+            $req->bindParam(':userid', $this->target);
             $req->bindParam(':elabid', $item['elabid']);
         }
 
@@ -146,18 +144,15 @@ class ImportZip extends Import
         if (!$req->execute()) {
             throw new Exception('Cannot import in database!');
         }
-        // needed in importFile()
-        $this->newItemId = $this->pdo->lastInsertId();
+
+        $newItemId = (int) $this->Db->lastInsertId();
 
         // create necessary objects
-        $Users = new Users($_SESSION['userid']);
         if ($this->type === 'experiments') {
-            $this->Entity = new Experiments($Users, $this->newItemId);
+            $this->Entity = new Experiments($this->Users, $newItemId);
         } else {
-            $this->Entity = new Database($Users, $this->newItemId);
+            $this->Entity = new Database($this->Users, $newItemId);
         }
-        $this->Uploads = new Uploads($this->Entity);
-        $this->Tags = new Tags($this->Entity);
 
         if (strlen($item['tags']) > 1) {
             $this->tagsDbInsert($item['tags']);
@@ -173,7 +168,7 @@ class ImportZip extends Import
     {
         $tagsArr = explode('|', $tags);
         foreach ($tagsArr as $tag) {
-            $this->Tags->create($tag);
+            $this->Entity->Tags->create($tag);
         }
     }
 
@@ -189,7 +184,7 @@ class ImportZip extends Import
 
             // upload the attached files
             if (is_array($item['uploads'])) {
-                $titlePath = preg_replace('/[^A-Za-z0-9]/', '_', stripslashes($item['title']));
+                $titlePath = preg_replace('/[^A-Za-z0-9]/', '_', $item['title']);
                 foreach ($item['uploads'] as $file) {
                     if ($this->type === 'experiments') {
                         $filePath = $this->tmpPath . '/' .
@@ -205,7 +200,7 @@ class ImportZip extends Import
                      * import but this should be handled. One day. Maybe.
                      */
                     if (is_readable($filePath)) {
-                        $this->Uploads->createFromLocalFile($filePath, $file['comment']);
+                        $this->Entity->Uploads->createFromLocalFile($filePath, $file['comment']);
                     }
                 }
             }

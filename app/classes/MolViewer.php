@@ -18,22 +18,22 @@ use Exception;
  */
 class MolViewer
 {
-    /** the id of the molecule's file and the resulting viewer */
+    /** @var int $id the id of the molecule's file and the resulting viewer */
     private $id;
 
-    /** if true, $id is handled as a PDB ID */
+    /** @var bool $isPdb if true, $id is handled as a PDB ID */
     private $isPdb;
 
-    /** the generated <div> will have this id */
+    /** @var string $divId the generated <div> will have this id */
     private $divId;
 
-    /** Style of the molecule */
+    /** @var string $dataStyle style of the molecule */
     private $dataStyle;
 
-    /** Background color of canvas */
+    /** @var string $backgroundColor background color of canvas */
     private $backgroundColor;
 
-    /** Path to data file */
+    /** @var string $filePath path to data file */
     private $filePath;
 
     /**
@@ -58,7 +58,7 @@ class MolViewer
         if ($filePath === "" && !$isPdb) {
             throw new Exception('If $id is not a PDB ID ($isPdb=false) then a valid file path must be passed!');
         }
-        $this->id = $id;
+        $this->id = (int) $id;
         $this->isPdb = $isPdb;
         $this->divId = '3Dmol_' . $this->id;
         $this->dataStyle = $dataStyle;

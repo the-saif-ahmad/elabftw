@@ -52,14 +52,6 @@ class ToolsTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('unknown', Tools::getExt('/path/to/myfilegif'));
     }
 
-    public function testBuildStringFromArray()
-    {
-        $array = array(1, 2, 42);
-        $this->assertEquals('1+2+42', Tools::buildStringFromArray($array));
-        $this->assertEquals('1-2-42', Tools::buildStringFromArray($array, '-'));
-        $this->assertFalse(Tools::buildStringFromArray('pwet'));
-    }
-
     public function testCheckId()
     {
         $this->assertFalse(Tools::checkId('yep'));
@@ -67,16 +59,6 @@ class ToolsTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse(Tools::checkId(0));
         $this->assertFalse(Tools::checkId(3.1415926535));
         $this->assertEquals(42, Tools::checkId(42));
-    }
-
-    public function testPurifyFirstname()
-    {
-        $this->assertEquals(Tools::purifyFirstname('rick'), 'Rick');
-    }
-
-    public function testPurifyLastname()
-    {
-        $this->assertEquals(Tools::purifyLastname('sanchez'), 'SANCHEZ');
     }
 
     public function testError()

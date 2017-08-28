@@ -11,6 +11,8 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
  * Deal with ajax requests sent from the user control panel
@@ -23,25 +25,25 @@ try {
     $redirect = false;
 
     // TAB 1 : PREFERENCES
-    if (isset($_POST['lang'])) {
+    if ($Request->request->has('lang')) {
         $redirect = true;
-        if ($Users->updatePreferences($_POST)) {
-            $_SESSION['ok'][] = _('Preferences updated.');
+        if ($Users->updatePreferences($Request->request->all())) {
+            $Session->getFlashBag()->add('ok', _('Preferences updated.'));
         } else {
-            $_SESSION['ko'][] = Tools::error();
+            $Session->getFlashBag()->add('ko', Tools::error());
         }
     }
     // END TAB 1
 
     // TAB 2 : ACCOUNT
-    if (isset($_POST['currpass'])) {
+    if ($Request->request->has('currpass')) {
         $tab = '2';
         $redirect = true;
 
-        if ($Users->updateAccount($_POST)) {
-            $_SESSION['ok'][] = _('Profile updated.');
+        if ($Users->updateAccount($Request->request->all())) {
+            $Session->getFlashBag()->add('ok', _('Profile updated.'));
         } else {
-            $_SESSION['ko'][] = Tools::error();
+            $Session->getFlashBag()->add('ko', Tools::error());
         }
     }
     // END TAB 2
@@ -49,71 +51,58 @@ try {
     // TAB 3 : EXPERIMENTS TEMPLATES
 
     // ADD NEW TPL
-    if (isset($_POST['new_tpl_form'])) {
+    if ($Request->request->has('new_tpl_form')) {
         $tab = '3';
         $redirect = true;
 
         // do nothing if the template name is empty
-        if (empty($_POST['new_tpl_name'])) {
+        if (empty($Request->request->get('new_tpl_name'))) {
             throw new Exception(_('You must specify a name for the template!'));
         }
         // template name must be 3 chars at least
-        if (strlen($_POST['new_tpl_name']) < 3) {
+        if (strlen($Request->request->get('new_tpl_name')) < 3) {
             throw new Exception(_('The template name must be 3 characters long.'));
         }
 
-        $tpl_name = filter_var($_POST['new_tpl_name'], FILTER_SANITIZE_STRING);
-        $tpl_body = Tools::checkBody($_POST['new_tpl_body']);
+        $tpl_name = $Request->request->filter('new_tpl_name', null, FILTER_SANITIZE_STRING);
+        $tpl_body = Tools::checkBody($Request->request->get('new_tpl_body'));
 
         $Templates = new Templates($Users);
-        if (!$Templates->create($tpl_name, $tpl_body, $_SESSION['userid'])) {
+        if (!$Templates->create($tpl_name, $tpl_body, $Session->get('userid'))) {
             throw new Exception(Tools::error());
         }
-        $_SESSION['ok'][] = _('Experiment template successfully added.');
+        $Session->getFlashBag()->add('ok', _('Experiment template successfully added.'));
     }
 
     // EDIT TEMPLATES
-    if (isset($_POST['tpl_form'])) {
+    if ($Request->request->has('tpl_form')) {
         $tab = '3';
         $redirect = true;
 
-        $tpl_id = array();
-        foreach ($_POST['tpl_id'] as $id) {
-            $tpl_id[] = $id;
-        }
-        $new_tpl_body = array();
-        foreach ($_POST['tpl_body'] as $body) {
-            $new_tpl_body[] = $body;
-        }
-        $new_tpl_name = array();
-        foreach ($_POST['tpl_name'] as $name) {
-            $new_tpl_name[] = $name;
-        }
-
         $Templates = new Templates($Users);
-
-        $cnt = count($_POST['tpl_body']);
-        for ($i = 0; $i < $cnt; $i++) {
-            $Templates->update($tpl_id[$i], $new_tpl_name[$i], $new_tpl_body[$i]);
-        }
-        $_SESSION['ok'][] = _('Template successfully edited.');
+        $Templates->update(
+            $Request->request->get('tpl_id')[0],
+            $Request->request->get('tpl_name')[0],
+            $Request->request->get('tpl_body')[0]
+        );
+        $Session->getFlashBag()->add('ok', _('Template successfully edited.'));
     }
 
-    // TEMPLATES DESTROY
-    if (isset($_POST['templatesDestroy'])) {
-        if (Tools::checkId($_POST['id']) === false) {
-            throw new Exception('The id parameter is invalid!');
+    // UPDATE ORDERING
+    if ($Request->request->has('updateOrdering')) {
+        if ($Request->request->get('table') === 'experiments_templates') {
+            // remove the create new entry
+            unset($Request->request->get('ordering')[0]);
+            $Entity = new Templates($Users);
         }
 
-        $Templates = new Templates($Users);
-
-        if ($Templates->destroy($_POST['id'], $_SESSION['userid'])) {
-            echo json_encode(array(
+        if ($Entity->updateOrdering($Request->request->all())) {
+            $Response->setData(array(
                 'res' => true,
-                'msg' => _('Template deleted successfully')
+                'msg' => _('Saved')
             ));
         } else {
-            echo json_encode(array(
+            $Response->setData(array(
                 'res' => false,
                 'msg' => Tools::error()
             ));
@@ -121,11 +110,11 @@ try {
     }
 
 } catch (Exception $e) {
-    $Logs = new Logs();
-    $Logs->create('Error', $_SESSION['userid'], $e->getMessage());
-    $_SESSION['ko'][] = $e->getMessage();
+    $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
+    $Session->getFlashBag()->add('ko', $e->getMessage());
 } finally {
     if ($redirect) {
-        header('Location: ../../ucp.php?tab=' . $tab);
+        $Response = new RedirectResponse("../../ucp.php?tab=" . $tab);
     }
+    $Response->send();
 }

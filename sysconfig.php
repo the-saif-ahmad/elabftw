@@ -17,57 +17,21 @@ use Exception;
  * Administrate elabftw install
  *
  */
+require_once 'app/init.inc.php';
+$App->pageTitle = _('eLabFTW Configuration');
 
 try {
-    require_once 'app/init.inc.php';
-    $pageTitle = _('eLabFTW Configuration');
-    require_once 'app/head.inc.php';
-
-    if ($_SESSION['is_sysadmin'] != 1) {
-        throw new Exception(_('This section is out of your reach.'));
+    if ($Session->get('is_sysadmin') != 1) {
+        throw new Exception(Tools::error(true));
     }
 
-    $Auth = new Auth();
-    $Config = new Config();
     $Idps = new Idps();
-    $Logs = new Logs();
-    $TeamsView = new TeamsView(new Teams());
+    $idpsArr = $Idps->readAll();
+    $logsArr = $App->Logs->readAll();
+    $TeamsView = new TeamsView(new Teams($Users));
     $teamsArr = $TeamsView->Teams->readAll();
-    $Users = new Users();
     $usersArr = $Users->readAll();
     $ReleaseCheck = new ReleaseCheck($Config);
-    if (!$ReleaseCheck->getUpdatesIni()) {
-        $message = 'Error getting latest version information from server! Check the proxy setting.';
-        echo Tools::displayMessage($message, 'ko');
-    }
-
-    // display current and latest version
-    echo "<p>" . _('Installed version:') . " " . $ReleaseCheck::INSTALLED_VERSION . " ";
-    if ($ReleaseCheck->success === true) {
-        // show a little green check if we have latest version
-        if (!$ReleaseCheck->updateIsAvailable()) {
-            echo "<img src='app/img/check.png' width='16px' length='16px' title='latest' style='position:relative;bottom:2px' alt='OK' />";
-        }
-        // display latest version
-        echo "<br>" . _('Latest version:') . " " . $ReleaseCheck->getLatestVersion() . "</p>";
-
-        // if we don't have the latest version, show button redirecting to doc
-        if ($ReleaseCheck->updateIsAvailable()) {
-            $message = $ReleaseCheck->getReleaseDate() . " - " .
-                _('A new version is available!') . " <a href='https://elabftw.readthedocs.io/en/latest/how-to-update.html'>
-                <button class='button'>Update elabftw</button></a>
-                <a href='" . $ReleaseCheck->getChangelogLink() . "'><button class='button'>Read changelog</button></a>";
-            echo Tools::displayMessage($message, 'warning');
-        }
-    } else {
-        echo "</p>";
-    }
-
-    if ($Config->configArr['mail_from'] === 'notconfigured@example.com') {
-        $message = sprintf(_('Please finalize install : %slink to documentation%s.'), "<a href='https://elabftw.readthedocs.io/en/latest/postinstall.html#setting-up-email'>", "</a>");
-        echo Tools::displayMessage($message, 'ko');
-    }
-
     $langsArr = Tools::getLangsArr();
 
     switch ($Config->configArr['mail_method']) {
@@ -94,29 +58,27 @@ try {
 
     $phpInfos = array(PHP_OS, PHP_VERSION, PHP_INT_MAX, PHP_SYSCONFDIR);
 
-    $logsArr = $Logs->read();
-
-    $idpsArr = $Idps->readAll();
-
-    echo $twig->render('sysconfig.html', array(
+    $template = 'sysconfig.html';
+    $renderArr = array(
         'Auth' => $Auth,
-        'Config' => $Config,
+        'ReleaseCheck' => $ReleaseCheck,
         'TeamsView' => $TeamsView,
         'langsArr' => $langsArr,
         'disable_sendmail' => $disable_sendmail,
         'disable_smtp' => $disable_smtp,
         'disable_php' => $disable_php,
+        'fromSysconfig' => true,
         'idpsArr' => $idpsArr,
         'phpInfos' => $phpInfos,
         'logsArr' => $logsArr,
-        'session' => $_SESSION,
         'teamsArr' => $teamsArr,
         'usersArr' => $usersArr
-    ));
+    );
 
 } catch (Exception $e) {
-    $Logs->create('Error', $_SESSION['userid'], $e->getMessage());
-    echo Tools::displayMessage($e->getMessage(), 'ko');
-} finally {
-    require_once 'app/footer.inc.php';
+    $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
+    $template = 'error.html';
+    $renderArr = array('error' => $e->getMessage());
 }
+
+echo $App->render($template, $renderArr);

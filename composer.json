@@ -8,23 +8,28 @@
         "ext-curl":"*",
         "ext-gettext":"*",
         "ext-openssl":"*",
-        "ext-gmagick":"*",
+        "ext-gd":"*",
         "ext-pdo": "*",
         "ext-zip": "*",
         "defuse/php-encryption": "2.0.*",
         "mpdf/mpdf": "^6.1",
         "swiftmailer/swiftmailer":"^5.4",
         "twig/extensions": "^1.4",
-        "onelogin/php-saml": "^2.10"
+        "onelogin/php-saml": "^2.10",
+        "guzzlehttp/guzzle": "^6.3",
+        "michelf/php-markdown": "^1.7",
+        "symfony/http-foundation": "^3.3"
 
     },
     "require-dev": {
         "codeception/codeception": "*",
-        "phpdocumentor/phpdocumentor": "2.*"
+        "phpdocumentor/phpdocumentor": "2.*",
+        "pyrech/composer-changelogs": "^1.5"
     },
     "autoload": {
         "psr-4": {
-            "Elabftw\\Elabftw\\" : ["app/classes", "app/models", "app/views"]}
+            "Elabftw\\Elabftw\\" : ["app/classes", "app/models", "app/views"]
+        }
     },
     "license": "AGPL-3.0"
 }

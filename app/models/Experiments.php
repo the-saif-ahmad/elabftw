@@ -16,21 +16,24 @@ use Exception;
 /**
  * All about the experiments
  */
-class Experiments extends Entity
+class Experiments extends AbstractEntity
 {
     use EntityTrait;
 
-    /** pdo object */
-    protected $pdo;
+    /** @var Comments $Comments instance of Comments */
+    public $Comments;
 
-    /** our team */
-    public $team;
-
-    /** instance of Links */
+    /** @var Links $Links instance of Links */
     public $Links;
 
-    /** instance of Comments */
-    public $Comments;
+    /** @var Steps $Steps instance of Steps */
+    public $Steps;
+
+    /** @var string $page The page name */
+    public $page = 'experiments';
+
+    /** @var string $type The table/type name TODO remove type and check with instanceof, rename table because it's used as table */
+    public $type = 'experiments';
 
     /**
      * Constructor
@@ -40,24 +43,18 @@ class Experiments extends Entity
      */
     public function __construct(Users $users, $id = null)
     {
-        $this->pdo = Db::getConnection();
+        parent::__construct($users, $id);
 
-        $this->type = 'experiments';
-        $this->Users = $users;
-
-        if (!is_null($id)) {
-            $this->setId($id);
-        }
-
-        $this->Links = new Links($this);
         $this->Comments = new Comments($this);
+        $this->Links = new Links($this);
+        $this->Steps = new Steps($this);
     }
 
     /**
      * Create an experiment
      *
      * @param int|null $tpl the template on which to base the experiment
-     * @return int the new id of the experiment
+     * @return string the new id of the experiment
      */
     public function create($tpl = null)
     {
@@ -68,9 +65,10 @@ class Experiments extends Entity
             $Templates->setId($tpl);
             $templatesArr = $Templates->read();
             $title = $templatesArr['name'];
+            $body = $templatesArr['body'];
         } else {
-            $templatesArr = $Templates->readCommon();
             $title = _('Untitled');
+            $body = $Templates->readCommonBody();
         }
 
         $visibility = 'team';
@@ -81,19 +79,26 @@ class Experiments extends Entity
         // SQL for create experiments
         $sql = "INSERT INTO experiments(team, title, date, body, status, elabid, visibility, userid)
             VALUES(:team, :title, :date, :body, :status, :elabid, :visibility, :userid)";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->execute(array(
             'team' => $this->Users->userData['team'],
             'title' => $title,
             'date' => Tools::kdate(),
-            'body' => $templatesArr['body'],
+            'body' => $body,
             'status' => $this->getStatus(),
             'elabid' => $this->generateElabid(),
             'visibility' => $visibility,
             'userid' => $this->Users->userid
         ));
+        $newId = $this->Db->lastInsertId();
 
-        return $this->pdo->lastInsertId();
+        // insert the tags from the template
+        if ($tpl !== null) {
+            $Tags = new Tags(new Templates($this->Users, $tpl));
+            $Tags->copyTags($newId);
+        }
+
+        return $newId;
     }
 
     /**
@@ -109,7 +114,7 @@ class Experiments extends Entity
         // get the id of related experiments
         $sql = "SELECT item_id FROM experiments_links
             WHERE link_id = :link_id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':link_id', $itemId);
         $req->execute();
         while ($data = $req->fetch()) {
@@ -153,7 +158,7 @@ class Experiments extends Entity
     public function updateVisibility($visibility)
     {
         $sql = "UPDATE experiments SET visibility = :visibility WHERE userid = :userid AND id = :id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':visibility', $visibility);
         $req->bindParam(':userid', $this->Users->userid);
         $req->bindParam(':id', $this->id, PDO::PARAM_INT);
@@ -167,10 +172,10 @@ class Experiments extends Entity
      * @param int $status Id of the status
      * @return bool
      */
-    public function updateStatus($status)
+    public function updateCategory($status)
     {
         $sql = "UPDATE experiments SET status = :status WHERE userid = :userid AND id = :id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':status', $status);
         $req->bindParam(':userid', $this->Users->userid);
         $req->bindParam(':id', $this->id, PDO::PARAM_INT);
@@ -180,23 +185,52 @@ class Experiments extends Entity
 
     /**
     * Returns if this experiment can be timestamped
+    * It checks if the status is timestampable but also if we own the experiment
     *
-    * @return bool
+    * @return string 0 or 1
     */
     public function isTimestampable()
     {
         $currentStatus = (int) $this->entityData['category_id'];
         $sql = "SELECT is_timestampable FROM status WHERE id = :status;";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':status', $currentStatus);
         $req->execute();
-        return (bool) $req->fetchColumn();
+        return $req->fetchColumn();
+    }
+
+    /**
+     * Set the experiment as timestamped with a path to the token
+     *
+     * @param string $responseTime the date of the timestamp
+     * @param string $responsefilePath the file path to the timestamp token
+     * @return bool
+     */
+    public function updateTimestamp($responseTime, $responsefilePath)
+    {
+        $sql = "UPDATE experiments SET
+            locked = 1,
+            lockedby = :userid,
+            lockedwhen = :when,
+            timestamped = 1,
+            timestampedby = :userid,
+            timestampedwhen = :when,
+            timestamptoken = :longname
+            WHERE id = :id;";
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':when', $responseTime);
+        // the date recorded in the db has to match the creation time of the timestamp token
+        $req->bindParam(':longname', $responsefilePath);
+        $req->bindParam(':userid', $this->Users->userid);
+        $req->bindParam(':id', $this->id);
+
+        return $req->execute();
     }
 
     /**
      * Select what will be the status for the experiment
      *
-     * @return int The status ID
+     * @return string The status ID
      */
     private function getStatus()
     {
@@ -205,7 +239,7 @@ class Experiments extends Entity
         // there should be only one because upon making a status default,
         // all the others are made not default
         $sql = 'SELECT id FROM status WHERE is_default = true AND team = :team LIMIT 1';
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':team', $this->Users->userData['team']);
         $req->execute();
         $status = $req->fetchColumn();
@@ -214,7 +248,7 @@ class Experiments extends Entity
         // we take the first status that come
         if (!$status) {
             $sql = 'SELECT id FROM status WHERE team = :team LIMIT 1';
-            $req = $this->pdo->prepare($sql);
+            $req = $this->Db->prepare($sql);
             $req->bindParam(':team', $this->Users->userData['team']);
             $req->execute();
             $status = $req->fetchColumn();
@@ -249,7 +283,7 @@ class Experiments extends Entity
 
         $sql = "INSERT INTO experiments(team, title, date, body, status, elabid, visibility, userid)
             VALUES(:team, :title, :date, :body, :status, :elabid, :visibility, :userid)";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->execute(array(
             'team' => $this->Users->userData['team'],
             'title' => $title,
@@ -259,12 +293,11 @@ class Experiments extends Entity
             'elabid' => $this->generateElabid(),
             'visibility' => $experiment['visibility'],
             'userid' => $this->Users->userid));
-        $newId = $this->pdo->lastInsertId();
-
-        $tags = new Tags($this);
-        $tags->copyTags($newId);
+        $newId = $this->Db->lastInsertId();
 
         $this->Links->duplicate($this->id, $newId);
+        $this->Steps->duplicate($this->id, $newId);
+        $this->Tags->copyTags($newId);
 
         return (int) $newId;
     }
@@ -278,19 +311,17 @@ class Experiments extends Entity
     {
         // delete the experiment
         $sql = "DELETE FROM experiments WHERE id = :id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':id', $this->id);
         $req->execute();
 
-        $tags = new Tags($this);
-        $tags->destroyAll();
-
-        $uploads = new Uploads($this);
-        $uploads->destroyAll();
-
-        $this->Links->destroyAll();
 
         $this->Comments->destroyAll();
+        $this->Links->destroyAll();
+        $this->Steps->destroyAll();
+        $this->Tags->destroyAll();
+        $this->Uploads->destroyAll();
+
 
         return true;
     }
@@ -309,13 +340,13 @@ class Experiments extends Entity
         if ($locked === 1 && ($this->entityData['lockedby'] != $this->Users->userid)) {
             // Get the first name of the locker to show in error message
             $sql = "SELECT firstname FROM users WHERE userid = :userid";
-            $req = $this->pdo->prepare($sql);
+            $req = $this->Db->prepare($sql);
             $req->bindParam(':userid', $this->entityData['lockedby']);
             $req->execute();
             throw new Exception(
                 _('This experiment was locked by') .
                 ' ' . $req->fetchColumn() . '. ' .
-                _("You don't have the rights to lock/unlock this.")
+                _("You don't have the rights to unlock this.")
             );
         }
 
@@ -332,7 +363,7 @@ class Experiments extends Entity
         }
         $sql = "UPDATE experiments
             SET locked = :locked, lockedby = :lockedby, lockedwhen = CURRENT_TIMESTAMP WHERE id = :id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':locked', $locked);
         $req->bindParam(':lockedby', $this->Users->userid);
         $req->bindParam(':id', $this->id);

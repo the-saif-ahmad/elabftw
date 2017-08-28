@@ -11,6 +11,7 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * The default path in Docker is to automatically install the database schema
@@ -20,6 +21,8 @@ use Exception;
 try {
     session_start();
     require_once '../vendor/autoload.php';
+    // create Request object
+    $Request = Request::createFromGlobals();
     $errflag = false;
 
     // Check if there is already a config file
@@ -34,13 +37,13 @@ try {
 
         // check if there are users registered
         require_once '../config.php';
-        $pdo = Db::getConnection();
+        $Db = Db::getConnection();
         // ok so we are connected, now count the number of tables before trying to count the users
         // if we are in docker, the number of tables might be 0
         // so we will need to import the structure before going further
         $sql = "SELECT COUNT(DISTINCT `table_name`) AS tablesCount
             FROM `information_schema`.`columns` WHERE `table_schema` = :db_name";
-        $req = $pdo->prepare($sql);
+        $req = $Db->prepare($sql);
         $req->bindValue(':db_name', DB_NAME);
         $req->execute();
         $res = $req->fetch();
@@ -63,7 +66,7 @@ try {
                 // If it has a semicolon at the end, it's the end of the query
                 if (substr(trim($line), -1, 1) == ';') {
                     // Perform the query
-                    $pdo->q($queryline);
+                    $Db->q($queryline);
                     // Reset temp variable to empty
                     $queryline = '';
                 }
@@ -73,14 +76,14 @@ try {
         }
 
         $sql = "SELECT * FROM users";
-        $req = $pdo->prepare($sql);
+        $req = $Db->prepare($sql);
         $req->execute();
         // redirect to register page if no users are in the database
         if ($req->rowCount() === 0) {
             header('Location: ../register.php');
             throw new Exception('Redirecting to register page');
         } else {
-            $message = 'It looks like eLabFTW is already installed. Delete the config file if you wish to reinstall it.';
+            $message = 'It looks like eLabFTW is already installed. Delete the config.php file if you wish to reinstall it.';
             throw new Exception($message);
         }
     }
@@ -109,11 +112,12 @@ try {
 
     <h3>Preliminary checks</h3>
     <?php
-    // CHECK WE ARE WITH HTTPS
-    if (!Tools::usingSsl()) {
+    // if we are not in https, die saying we work only in https
+    if (!$Request->isSecure()) {
         // get the url to display a link to click (without the port)
-        $url = 'https://' . $_SERVER['SERVER_NAME'] . $_SERVER['PHP_SELF'];
-        $message = "eLabFTW works only in HTTPS. Please enable HTTPS on your server. Or click this link : <a href='$url'>$url</a>";
+        $url = 'https://' . $Request->getHttpHost();
+        $message = "eLabFTW works only in HTTPS. Please enable HTTPS on your server. Or click this link : <a href='" .
+            $url . "'>$url</a>";
         throw new Exception($message);
     }
 
@@ -141,7 +145,7 @@ try {
             echo Tools::displayMessage($message, 'ok', false);
         } else { // failed at creating the folder
             $message = "Failed creating <em>uploads/</em> directory. You need to do it manually. 
-                <a href='https://elabftw.readthedocs.io/en/stable/faq.html#failed-creating-uploads-directory'>Click here to discover how.</a>";
+                <a href='https://doc.elabftw.net/faq.html#failed-creating-uploads-directory'>Click here to discover how.</a>";
             $errflag = true;
         }
     }
@@ -151,7 +155,7 @@ try {
     foreach ($extensionArr as $ext) {
         if (!extension_loaded($ext)) {
             $message = "The <em>" . $ext . "</em> extension is <strong>NOT</strong> loaded.
-                    <a href='https://elabftw.readthedocs.io/en/stable/faq.html#extension-is-not-loaded'>Click here to read how to fix this.</a>";
+                    <a href='https://doc.elabftw.net/faq.html#extension-is-not-loaded'>Click here to read how to fix this.</a>";
             $errflag = true;
         }
     }
@@ -263,7 +267,7 @@ try {
     </script>
     <?php
 } catch (Exception $e) {
-    echo Tools::displayMessage($e->getMessage(), 'ko');
+    echo Tools::displayMessage($e->getMessage(), 'ko', false);
     echo "</section></section>";
 } finally {
     echo "</body></html>";

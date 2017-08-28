@@ -16,42 +16,38 @@ use Exception;
  * Show history of body of experiment or db item
  *
  */
+require_once 'app/init.inc.php';
+$App->pageTitle = _('Revisions');
+
 try {
-    require_once 'app/init.inc.php';
-    $pageTitle = _('Revisions');
     $errflag = false;
-    require_once 'app/head.inc.php';
 
-    $Users = new Users($_SESSION['userid']);
-    if ($_GET['type'] === 'experiments') {
-        $Entity = new Experiments($Users, $_GET['item_id']);
-        $location = 'experiments';
+    if ($Request->query->get('type') === 'experiments') {
+        $Entity = new Experiments($Users);
 
-    } elseif ($_GET['type'] === 'items') {
+    } elseif ($Request->query->get('type') === 'items') {
 
-        $Entity = new Database($Users, $_GET['item_id']);
-        $location = 'database';
+        $Entity = new Database($Users);
 
     } else {
         throw new Exception('Bad type!');
     }
 
+    $Entity->setId($Request->query->get('item_id'));
     $Entity->canOrExplode('write');
-    $Revisions = new Revisions($Entity);
 
-    // BEGIN PAGE
-    echo "<a href='" . $location . ".php?mode=view&id=" . $_GET['item_id'] .
-        "'><h4><img src='app/img/undo.png' alt='<--' /> " . _('Go back') . "</h4></a>";
-    $revisionArr = $Revisions->read();
-    foreach ($revisionArr as $revision) {
-        echo "<div class='item'>" . _('Saved on:') . " " . $revision['savedate'] .
-            " <a href='app/controllers/RevisionsController.php?item_id=" . $_GET['item_id'] .
-            "&type=" . $_GET['type'] . "&action=restore&rev_id=" . $revision['id'] . "'>" . _('Restore') . "</a><br>";
-        echo $revision['body'] . "</div>";
-    }
+    $Revisions = new Revisions($Entity);
+    $revisionsArr = $Revisions->readAll();
+
+    $template = 'revisions.html';
+    $renderArr = array(
+        'Entity' => $Entity,
+        'revisionsArr' => $revisionsArr
+    );
 
 } catch (Exception $e) {
-    echo Tools::displayMessage($e->getMessage(), 'ko');
-} finally {
-    require_once 'app/footer.inc.php';
+    $template = 'error.html';
+    $renderArr = array('error' => $e->getMessage());
 }
+
+echo $App->render($template, $renderArr);

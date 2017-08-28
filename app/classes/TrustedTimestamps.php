@@ -14,83 +14,79 @@ namespace Elabftw\Elabftw;
 
 use DateTime;
 use Exception;
+use PDO;
 use Defuse\Crypto\Crypto as Crypto;
 use Defuse\Crypto\Key as Key;
+use GuzzleHttp\Psr7;
+use GuzzleHttp\Exception\RequestException;
 
 /**
  * Timestamp an experiment with RFC 3161
  * Based on:
  * http://www.d-mueller.de/blog/dealing-with-trusted-timestamps-in-php-rfc-3161
  */
-class TrustedTimestamps extends Entity
+class TrustedTimestamps extends AbstractMake
 {
-    /** instance of Config*/
+    /** default hash algo for file */
+    const HASH_ALGORITHM = 'sha256';
+
+    /** @var Experiments $Entity instance of Entity */
+    protected $Entity;
+
+    /** @var Db $Db SQL Database */
+    protected $Db;
+
+    /** @var Config $Config instance of Config*/
     private $Config;
 
-    /** array with config of the team */
+    /** @var array $teamConfigArr array with config of the team */
     private $teamConfigArr;
 
-    /** our database connection */
-    protected $pdo;
-
-    /** instance of Entity */
-    public $Entity;
-
-    /** ELAB_ROOT . uploads/ . $pdfFileName */
+    /** @var string $pdfPath full path to pdf (ELAB_ROOT . uploads/ . $pdfFileName) */
     private $pdfPath;
-    /** elabid-timestamped.pdf */
+
+    /** @var string $pdfRealName name of the pdf (elabid-timestamped.pdf) */
     private $pdfRealName;
-    /** a hash */
+
+    /** @var string $pdfLongName a hash */
     private $pdfLongName;
 
-    /** config (url, login, password, cert) */
+    /** @var array $stampParams config (url, login, password, cert) */
     private $stampParams = array();
-    /** things that get deleted with destruct method */
-    private $tmpfiles = array();
 
-    /** where we store the request file */
+    /** @var array $trash things that get deleted with destruct method */
+    private $trash = array();
+
+    /** @var string $requestfilePath where we store the request file */
     private $requestfilePath;
-    /** where we store the asn1 token */
+
+    /** @var string $responsefilePath where we store the asn1 token */
     private $responsefilePath;
 
-    /** our answer from TSA */
-    private $binaryResponseString;
-    /** the time of the timestamp */
+    /** @var string $responseTime the time of the timestamp */
     private $responseTime;
 
-    /** hash algo for file */
-    private $hashAlgorithm = 'sha256';
-
     /**
-     * Give me an experiment id and a db and I make good pdf for you
+     * Pdf is generated on instanciation and after you need to call timestamp()
      *
      * @param Config $config
      * @param Teams $teams
-     * @param Entity $entity
+     * @param Experiments $entity
      */
-    public function __construct(Config $config, Teams $teams, Entity $entity)
+    public function __construct(Config $config, Teams $teams, Experiments $entity)
     {
         $this->Config = $config;
         $this->Entity = $entity;
         $this->teamConfigArr = $teams->read();
 
-        $this->pdo = Db::getConnection();
-
-        $this->generatePdf();
+        $this->Db = Db::getConnection();
 
         // initialize with info from config
         $this->stampParams = $this->getTimestampParameters();
-    }
 
-    /**
-     * Delete all temporary files created by TrustedTimestamps
-     *
-     */
-    public function __destruct()
-    {
-        foreach ($this->tmpfiles as $file) {
-            unlink($file);
-        }
+        /** set the name of the pdf (elabid + -timestamped.pdf) */
+        $this->pdfRealName = $this->getCleanName();
+        $this->generatePdf();
     }
 
     /**
@@ -101,9 +97,10 @@ class TrustedTimestamps extends Entity
     private function generatePdf()
     {
         try {
-            $pdf = new MakePdf($this->Entity, true, true);
-            $this->pdfPath = $pdf->filePath;
-            $this->pdfLongName = $pdf->fileName;
+            $MakePdf = new MakePdf($this->Entity);
+            $MakePdf->output(true, true);
+            $this->pdfPath = $MakePdf->filePath;
+            $this->pdfLongName = $MakePdf->fileName;
         } catch (Exception $e) {
             throw new Exception('Failed at making the pdf : ' . $e->getMessage());
         }
@@ -114,10 +111,8 @@ class TrustedTimestamps extends Entity
      *
      * @return array<string,string>
      */
-    public function getTimestampParameters()
+    private function getTimestampParameters()
     {
-        $hash_algorithms = array('sha256', 'sha384', 'sha512');
-
         // if there is a config in the team, use that
         // otherwise use the general config if we can
         if (strlen($this->teamConfigArr['stampprovider']) > 2) {
@@ -139,8 +134,10 @@ class TrustedTimestamps extends Entity
         $provider = $config['stampprovider'];
         $cert = $config['stampcert'];
         $hash = $config['stamphash'];
-        if (!in_array($hash, $hash_algorithms)) {
-            $hash = 'sha256';
+
+        $allowedAlgos = array('sha256', 'sha384', 'sha512');
+        if (!in_array($hash, $allowedAlgos)) {
+            $hash = self::HASH_ALGORITHM;
         }
 
         return array('stamplogin' => $login,
@@ -184,40 +181,18 @@ class TrustedTimestamps extends Entity
     }
 
     /**
-     * Create a tempfile in uploads/tmp temp path
-     *
-     * @param string $str Content which should be written to the newly created tempfile
-     * @return string filepath of the created tempfile
-     */
-    private function createTempFile($str = "")
-    {
-        $tempfilename = tempnam(ELAB_ROOT . 'uploads/tmp', rand());
-
-        if (!file_exists($tempfilename)) {
-                    throw new Exception("Tempfile could not be created");
-        }
-
-        if (!empty($str) && !file_put_contents($tempfilename, $str)) {
-                    throw new Exception("Could not write to tempfile");
-        }
-
-        array_push($this->tmpfiles, $tempfilename);
-
-        return $tempfilename;
-    }
-
-    /**
      * Creates a Timestamp Requestfile from a filename
      *
      * @throws Exception
      */
     private function createRequestfile()
     {
-        if (!is_readable($this->pdfPath)) {
-            throw new Exception('Pdf not found! This is a bug!');
-        }
-        $outfilepath = $this->createTempFile();
-        $cmd = "ts -query -data " . escapeshellarg($this->pdfPath) . " -cert -" . $this->stampParams['hash'] . " -no_nonce -out " . escapeshellarg($outfilepath);
+        $this->requestfilePath = $this->getFilePath($this->getUniqueString(), true);
+        // we don't keep this file around
+        $this->trash[] = $this->requestfilePath;
+
+        $cmd = "ts -query -data " . escapeshellarg($this->pdfPath) . " -cert -" .
+            $this->stampParams['hash'] . " -no_nonce -out " . escapeshellarg($this->requestfilePath);
         $opensslResult = $this->runOpenSSL($cmd);
         $retarray = $opensslResult['retarray'];
         $retcode = $opensslResult['retcode'];
@@ -227,10 +202,10 @@ class TrustedTimestamps extends Entity
         }
 
         if (stripos($retarray[0], "openssl:Error") !== false) {
-            throw new Exception("There was an error with OpenSSL. Is version >= 0.99 installed?: " . implode(", ", $retarray));
+            throw new Exception(
+                "There was an error with OpenSSL. Is version >= 0.99 installed?: " . implode(", ", $retarray)
+            );
         }
-
-        $this->requestfilePath = $outfilepath;
     }
 
     /**
@@ -309,39 +284,42 @@ class TrustedTimestamps extends Entity
     /**
      * Contact the TSA and receive a token after successful timestamp
      *
+     * @throws Exception
+     * @return \GuzzleHttp\Psr7\Response
      */
     private function postData()
     {
-        $ch = curl_init();
-        // set url of TSA
-        curl_setopt($ch, CURLOPT_URL, $this->stampParams['stampprovider']);
-        // if login and password are set, pass them to curl
+        $client = new \GuzzleHttp\Client();
+
+        $options = array(
+            // add user agent
+            // http://developer.github.com/v3/#user-agent-required
+            'headers' => [
+                'User-Agent' => 'Elabftw/' . ReleaseCheck::INSTALLED_VERSION,
+                'Content-Type' => 'application/timestamp-query',
+                'Content-Transfer-Encoding' => 'base64'
+            ],
+            // add proxy if there is one
+            'proxy' => $this->Config->configArr['proxy'],
+            // add a timeout, because if you need proxy, but don't have it, it will mess up things
+            // in seconds
+            'timeout' => 5,
+            'body' => file_get_contents($this->requestfilePath)
+        );
+
         if ($this->stampParams['stamplogin'] && $this->stampParams['stamppassword']) {
-            curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-            curl_setopt($ch, CURLOPT_USERPWD, $this->stampParams['stamplogin'] . ":" . $this->stampParams['stamppassword']);
-        }
-        // add proxy if there is one
-        if (strlen($this->Config->configArr['proxy']) > 0) {
-            curl_setopt($ch, CURLOPT_PROXY, $this->Config->configArr['proxy']);
-        }
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, file_get_contents($this->requestfilePath));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/timestamp-query'));
-        curl_setopt($ch, CURLOPT_USERAGENT, "Elabftw/" . ReleaseCheck::INSTALLED_VERSION);
-        $binaryResponseString = curl_exec($ch);
-        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($status != 200 || !strlen($binaryResponseString)) {
-            // check if we got something bad
-            throw new Exception('Bad answer from TSA (' . $status . ')<br>' . $binaryResponseString);
+            $options['auth'] = array(
+                $this->stampParams['stamplogin'],
+                $this->stampParams['stamppassword']
+            );
         }
 
-        // populate variable
-        $this->binaryResponseString = $binaryResponseString;
+        try {
+            return $client->request('POST', $this->stampParams['stampprovider'], $options);
+
+        } catch (RequestException $e) {
+            throw new Exception($e->getMessage());
+        }
     }
 
     /**
@@ -356,35 +334,38 @@ class TrustedTimestamps extends Entity
         if (!is_readable($file)) {
             throw new Exception('Not a file!');
         }
-        return hash_file($this->hashAlgorithm, $file);
+        return hash_file($this->stampParams['hash'], $file);
     }
+
     /**
-     * Save the binaryResponseString to a .asn1 file (token)
+     * Save the binaryToken to a .asn1 file
      *
+     * @param string $binaryToken asn1 response from TSA
      */
-    private function saveToken()
+    private function saveToken($binaryToken)
     {
-        $long_name = hash("sha512", uniqid(rand(), true)) . ".asn1";
-        $file_path = ELAB_ROOT . 'uploads/' . $long_name;
-        if (!file_put_contents($file_path, $this->binaryResponseString)) {
+        $longName = $this->getUniqueString() . ".asn1";
+        $filePath = $this->getFilePath($longName);
+        if (!file_put_contents($filePath, $binaryToken)) {
             throw new Exception('Cannot save token to disk!');
         }
-        $this->responsefilePath = $file_path;
+        $this->responsefilePath = $filePath;
 
-        $real_name = $this->pdfRealName . '.asn1';
+        $realName = $this->pdfRealName . '.asn1';
+        $hash = $this->getHash($this->responsefilePath);
 
         // keep a trace of where we put the token
         $sql = "INSERT INTO uploads(real_name, long_name, comment, item_id, userid, type, hash, hash_algorithm)
             VALUES(:real_name, :long_name, :comment, :item_id, :userid, :type, :hash, :hash_algorithm)";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':real_name', $real_name);
-        $req->bindParam(':long_name', $long_name);
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':real_name', $realName);
+        $req->bindParam(':long_name', $longName);
         $req->bindValue(':comment', "Timestamp token");
         $req->bindParam(':item_id', $this->Entity->id);
         $req->bindParam(':userid', $this->Entity->Users->userid);
         $req->bindValue(':type', 'timestamp-token');
-        $req->bindParam(':hash', $this->getHash($this->responsefilePath));
-        $req->bindParam(':hash_algorithm', $this->hashAlgorithm);
+        $req->bindParam(':hash', $hash);
+        $req->bindParam(':hash_algorithm', $this->stampParams['hash']);
         if (!$req->execute()) {
             throw new Exception('Cannot insert into SQL!');
         }
@@ -412,13 +393,17 @@ class TrustedTimestamps extends Entity
          * every other case (Certificate not found / invalid / openssl is not installed / ts command not known)
          * are being handled the same way -> retcode 1 + any retarray NOT containing "message imprint mismatch"
          */
-
-        if ($retcode === 0 && strtolower(trim($retarray[0])) == "verification: ok") {
-            return true;
-        }
-
         if (!is_array($retarray)) {
             throw new Exception('$retarray must be an array.');
+        }
+
+        if ($retcode === 0) {
+            // because the first return line could be "Using configuration from /usr/local/ssl/openssl.cnf"
+            // so we check the two first lines
+            if (strtolower(trim($retarray[0])) == "verification: ok" ||
+                strtolower(trim($retarray[1])) == "verification: ok") {
+                return true;
+            }
         }
 
         foreach ($retarray as $retline) {
@@ -470,44 +455,18 @@ class TrustedTimestamps extends Entity
     }
 
     /**
-     * Update SQL
-     *
-     */
-    private function sqlUpdateExperiment()
-    {
-        $sql = "UPDATE experiments SET
-            locked = 1,
-            lockedby = :userid,
-            lockedwhen = :when,
-            timestamped = 1,
-            timestampedby = :userid,
-            timestampedwhen = :when,
-            timestamptoken = :longname
-            WHERE id = :id;";
-        $req = $this->pdo->prepare($sql);
-        $req->bindParam(':when', $this->responseTime);
-        // the date recorded in the db has to match the creation time of the timestamp token
-        $req->bindParam(':longname', $this->responsefilePath);
-        $req->bindParam(':userid', $this->Entity->Users->userid);
-        $req->bindParam(':id', $this->Entity->id);
-        if (!$req->execute()) {
-            throw new Exception('Cannot update SQL!');
-        }
-    }
-
-    /**
      * The realname is elabid-timestamped.pdf
      *
      */
-    private function setPdfRealName()
+    public function getCleanName()
     {
         $sql = "SELECT elabid FROM experiments WHERE id = :id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':id', $this->Entity->id);
         if (!$req->execute()) {
             throw new Exception('Cannot get elabid!');
         }
-        $this->pdfRealName = $req->fetch(\PDO::FETCH_COLUMN) . "-timestamped.pdf";
+        return $req->fetch(PDO::FETCH_COLUMN) . "-timestamped.pdf";
     }
 
     /**
@@ -517,16 +476,18 @@ class TrustedTimestamps extends Entity
      */
     private function sqlInsertPdf()
     {
+        $hash = $this->getHash($this->pdfPath);
+
         $sql = "INSERT INTO uploads(real_name, long_name, comment, item_id, userid, type, hash, hash_algorithm) VALUES(:real_name, :long_name, :comment, :item_id, :userid, :type, :hash, :hash_algorithm)";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':real_name', $this->pdfRealName);
         $req->bindParam(':long_name', $this->pdfLongName);
         $req->bindValue(':comment', "Timestamped PDF");
         $req->bindParam(':item_id', $this->Entity->id);
         $req->bindParam(':userid', $this->Entity->Users->userid);
         $req->bindValue(':type', 'exp-pdf-timestamp');
-        $req->bindParam(':hash', $this->getHash($this->pdfPath));
-        $req->bindParam(':hash_algorithm', $this->hashAlgorithm);
+        $req->bindParam(':hash', $hash);
+        $req->bindParam(':hash_algorithm', $this->stampParams['hash']);
 
         if (!$req->execute()) {
             throw new Exception('Cannot insert into SQL!');
@@ -561,7 +522,7 @@ class TrustedTimestamps extends Entity
         $versionArr = explode(":", $retarray[111]);
         $version = $versionArr[3];
 
-        $oidArr = explode(":", $retarray[81]);
+        $oidArr = explode(":", $retarray[148]);
         $oid = $oidArr[3];
 
         $hashArr = explode(":", $retarray[12]);
@@ -570,16 +531,9 @@ class TrustedTimestamps extends Entity
         $messageArr = explode(":", $retarray[17]);
         $message = $messageArr[3];
 
-        $timestampArr = explode(":", $retarray[142]);
-        // for some reason the DateTime::createFromFormat didn't work
-        // so we do it manually
-        $timestamp = rtrim($timestampArr[3], 'Z');
-        $year = "20" . substr($timestamp, 0, 2);
-        $month = substr($timestamp, 2, 2);
-        $day = substr($timestamp, 4, 2);
-        $hour = substr($timestamp, 6, 2);
-        $minute = substr($timestamp, 8, 2);
-        $second = substr($timestamp, 10, 2);
+        $utctimeArr = explode(":", $retarray[142]);
+        $utctime = rtrim($utctimeArr[3], 'Z');
+        $timestamp = \DateTime::createFromFormat('ymdHis', $utctime);
 
         $countryArr = explode(":", $retarray[31]);
         $country = $countryArr[3];
@@ -592,14 +546,14 @@ class TrustedTimestamps extends Entity
         $tsaArr = explode(":", $retarray[43]);
         $tsa .= ", " . $tsaArr[3];
 
-        $out .= "Status: " . $status;
+        $out .= "<strong>Status</strong>: " . $status;
         $out .= "<br>Version: " . $version;
         $out .= "<br>OID: " . $oid;
         $out .= "<br>Hash algorithm: " . $hash;
         $out .= "<br>Message data: 0x" . $message;
-        $out .= "<br>Timestamp: " . $year . "-" . $month . "-" . $day . " at " . $hour . ":" . $minute . ":" . $second;
+        $out .= "<br>Timestamp: " . $timestamp->format('Y-m-d H:i:s');
 
-        $out .= "<br><br>TSA info:";
+        $out .= "<br><br><strong>TSA info:</strong>";
         $out .= "<br>TSA: " . $tsa;
         $out .= "<br>Country: " . $country;
 
@@ -617,15 +571,9 @@ class TrustedTimestamps extends Entity
         // first we create the request file
         $this->createRequestfile();
 
-        // make the request to the TSA
-        $this->postData();
-
-        // we need the name of the pdf (elabid-timestamped.pdf)
-        // for saving the token correctly
-        $this->setPdfRealName();
-
+        // get an answer from the TSA and
         // save the token to .asn1 file
-        $this->saveToken();
+        $this->saveToken($this->postData()->getBody());
 
         // set the responseTime
         $this->setResponseTime();
@@ -634,9 +582,22 @@ class TrustedTimestamps extends Entity
         $this->validate();
 
         // SQL
-        $this->sqlUpdateExperiment();
+        if (!$this->Entity->updateTimestamp($this->responseTime, $this->responsefilePath)) {
+            throw new Exception('Cannot update SQL!');
+        }
         $this->sqlInsertPdf();
 
         return true;
+    }
+
+    /**
+     * Delete all temporary files created by TrustedTimestamps
+     *
+     */
+    public function __destruct()
+    {
+        foreach ($this->trash as $file) {
+            unlink($file);
+        }
     }
 }

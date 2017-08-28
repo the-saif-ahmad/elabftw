@@ -10,30 +10,31 @@
  */
 namespace Elabftw\Elabftw;
 
+
 /**
  * Generate and display experiments statistics for a user
  */
 class UserStats
 {
-    /** instance of Users */
+    /** @var Users $Users instance of Users */
     private $Users;
 
-    /** count of experiments */
+    /** @var int $count count of experiments */
     private $count = 0;
 
-    /** pdo object */
-    private $pdo;
+    /** @var Db $Db SQL Database */
+    private $Db;
 
-    /** array with status id and count */
+    /** @var array $countArr status id and count */
     private $countArr = array();
 
-    /** array with status id and name */
+    /** @var array $statusArr status id and name */
     private $statusArr = array();
 
-    /** array with colors for status */
+    /** @var array $colorsArr colors for status */
     public $colorsArr = array();
 
-    /** array with percentage and status name */
+    /** @var array $percentArr percentage and status name */
     public $percentArr = array();
 
     /**
@@ -46,7 +47,7 @@ class UserStats
     {
         $this->Users = $users;
         $this->count = $count;
-        $this->pdo = Db::getConnection();
+        $this->Db = Db::getConnection();
         $this->countStatus();
         $this->makePercent();
     }
@@ -73,7 +74,7 @@ class UserStats
                 FROM experiments
                 WHERE userid = :userid
                 AND status = :status";
-            $req = $this->pdo->prepare($sql);
+            $req = $this->Db->prepare($sql);
             $req->bindParam(':userid', $this->Users->userid);
             $req->bindParam(':status', $key);
             $req->execute();

@@ -40,6 +40,7 @@ module.exports = function(grunt) {
               'node_modules/moment/moment.js',
               'node_modules/fullcalendar/dist/fullcalendar.js',
               'node_modules/fullcalendar/dist/locale-all.js'],
+          'app/js/team.min.js': 'app/js/team.js',
 
           'app/js/tinymce-dropzone.min.js': [
               'node_modules/tinymce/tinymce.js',
@@ -63,7 +64,9 @@ module.exports = function(grunt) {
           'app/js/change-pass.min.js': 'app/js/change-pass.js',
           'app/js/show.min.js': 'app/js/show.js',
           'app/js/edit.min.js': 'app/js/edit.js',
-          'app/js/ucp.min.js': 'app/js/ucp.js'
+          'app/js/search.min.js': 'app/js/search.js',
+          'app/js/ucp.min.js': 'app/js/ucp.js',
+          'app/js/doodle.min.js': 'app/js/doodle.js'
 
         }
       }
@@ -105,6 +108,10 @@ module.exports = function(grunt) {
       // xdebug must be ENABLED
       runcoverage: {
         command: 'php vendor/bin/codecept run --skip acceptance --skip functionnal --coverage --coverage-html'
+      },
+      // run yarn install
+      yarninstall: {
+        command: 'yarn install'
       }
     }
   });
@@ -114,7 +121,9 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-cssmin');
   grunt.loadNpmTasks('grunt-shell');
 
-  grunt.registerTask('default', ['uglify', 'cssmin']);
+  // before minifying js it is preferable to do 'yarn install' to update the dependencies
+  grunt.registerTask('yarn', 'shell:yarninstall');
+  grunt.registerTask('default', ['yarn', 'uglify', 'cssmin']);
   grunt.registerTask('css', 'cssmin');
   grunt.registerTask('api', 'shell:buildapi');
   grunt.registerTask('test', 'shell:runtests');

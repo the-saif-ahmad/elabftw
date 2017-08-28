@@ -16,40 +16,40 @@ use Exception;
  * The team page
  *
  */
+require_once 'app/init.inc.php';
+$App->pageTitle = _('Team');
+
 try {
-    require_once 'app/init.inc.php';
-    $pageTitle = _('Team');
-    $selectedMenu = 'Team';
-    require_once 'app/head.inc.php';
-
-    if (!isset($Users)) {
-        $Users = new Users($_SESSION['userid']);
-    }
-
-    $TeamsView = new TeamsView(new Teams($_SESSION['team_id']));
-    $Database = new Database($Users);
+    $TeamsView = new TeamsView(new Teams($App->Users));
+    $Database = new Database($App->Users);
     // we only want the bookable type of items
     $Database->bookableFilter = " AND bookable = 1";
     $itemsArr = $Database->read();
     $Scheduler = new Scheduler($Database);
-    if (isset($_GET['item']) && !empty($_GET['item'])) {
-        $Scheduler->Database->setId($_GET['item']);
+
+    $selectedItem = null;
+    if ($Request->query->get('item')) {
+        $Scheduler->Database->setId($Request->query->get('item'));
+        $selectedItem = ($Request->query->get('item'));
+
         $Scheduler->populate();
         if (strlen($Scheduler->itemData['category']) === 0) {
             throw new Exception(_('Nothing to show with this id'));
         }
     }
 
-    echo $twig->render('team.html', array(
-        'Users' => $Users,
+    $template = 'team.html';
+    $renderArr = array(
         'TeamsView' => $TeamsView,
         'Scheduler' => $Scheduler,
         'itemsArr' => $itemsArr,
-        'lang' => Tools::getCalendarLang($Users->userData['lang'])
-    ));
+        'selectedItem' => $selectedItem,
+        'lang' => Tools::getCalendarLang($App->Users->userData['lang'])
+    );
 
 } catch (Exception $e) {
-    echo Tools::displayMessage($e->getMessage(), 'ko');
-} finally {
-    require_once 'app/footer.inc.php';
+    $template = 'error.html';
+    $renderArr = array('error' => $e->getMessage());
 }
+
+echo $App->render($template, $renderArr);

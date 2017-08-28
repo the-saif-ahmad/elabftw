@@ -13,37 +13,31 @@ namespace Elabftw\Elabftw;
 /**
  * Make a CSV file from a list of id and a type
  */
-class MakeCsv extends Make
+class MakeCsv extends AbstractMake
 {
-    /** our pdo object */
-    protected $pdo;
-
-    /** a sha512 sum */
+    /** @var string $fileName a sha512 sum */
     public $fileName;
-    /** the full path of the file */
+
+    /** @var string $filePath the full path of the file */
     public $filePath;
 
-    /** the lines in the csv file */
+    /** @var array $list the lines in the csv file */
     private $list = array();
-    /** the input ids */
+
+    /** @var string $idList the input ids */
     private $idList;
-    /** the input ids but in an array */
-    private $idArr = array();
-    /** Entity instance */
-    private $Entity;
 
     /**
      * Give me a list of id+id+id and a type, I make good csv for you
      *
-     * @param Entity $entity
+     * @param AbstractEntity $entity
      * @param string $idList 1+4+5+2
      */
-    public function __construct(Entity $entity, $idList)
+    public function __construct(AbstractEntity $entity, $idList)
     {
-        $this->pdo = Db::getConnection();
-        $this->Entity = $entity;
+        parent::__construct($entity);
 
-        $this->fileName = $this->getFileName();
+        $this->fileName = $this->getUniqueString();
         $this->filePath = $this->getFilePath($this->fileName, true);
 
         $this->idList = $idList;
@@ -73,7 +67,7 @@ class MakeCsv extends Make
         if ($this->Entity->type === 'experiments') {
             return array('id', 'date', 'title', 'content', 'status', 'elabid', 'url');
         }
-        return  array('title', 'description', 'id', 'date', 'type', 'rating', 'url');
+        return  array('id', 'date', 'title', 'description', 'category', 'rating', 'url');
     }
 
     /**
@@ -82,35 +76,15 @@ class MakeCsv extends Make
      */
     private function loopIdArr()
     {
-        $this->idArr = explode(" ", $this->idList);
-        foreach ($this->idArr as $id) {
+        $idArr = explode(" ", $this->idList);
+        foreach ($idArr as $id) {
             $this->Entity->setId($id);
-            $this->Entity->populate();
             $permissions = $this->Entity->getPermissions();
             if ($permissions['read']) {
                 $this->addLine();
             }
         }
         $this->writeCsv();
-    }
-
-    /**
-     * Construct URL
-     *
-     * @param int $id The id of the current item
-     * @return string URL
-     */
-    private function getUrl($id)
-    {
-        $url = 'https://' . $_SERVER['SERVER_NAME'] . Tools::getServerPort() . $_SERVER['PHP_SELF'];
-        $needle = array('make.php', 'app/controllers/ExperimentsController.php');
-
-        if ($this->Entity->type === 'experiments') {
-            $url = str_replace($needle, 'experiments.php', $url);
-        } else { //item
-            $url = str_replace($needle, 'database.php', $url);
-        }
-        return $url . "?mode=view&id=" . $id;
     }
 
     /**
@@ -131,7 +105,7 @@ class MakeCsv extends Make
             html_entity_decode(strip_tags(htmlspecialchars_decode($this->Entity->entityData['body'], ENT_QUOTES | ENT_COMPAT))),
             htmlspecialchars_decode($this->Entity->entityData['category'], ENT_QUOTES | ENT_COMPAT),
             $elabidOrRating,
-            $this->getUrl($this->Entity->entityData['id'])
+            $this->getUrl()
         );
     }
 

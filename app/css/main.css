@@ -495,6 +495,11 @@ section.item {
      background-color: #727272;
 }
 
+/* show-hide canvas / molecule editor */
+.show-hide {
+    font-size: 110%;
+}
+
 /* LOGIN.PHP */
 .block {
     display:block;
@@ -615,6 +620,9 @@ tr:nth-child(odd) {
 }
 
 /* SEARCH.PHP */
+.searchform {
+    margin-bottom: 20px;
+}
 .searchform #title, .searchform #body {
     width: 100%;
 }
@@ -657,7 +665,7 @@ tr:nth-child(odd) {
     border:  1px solid #dcdddc;
     border-radius: 5px;
     margin: 5px auto;
-    padding: 5px 10px 10px 5px;
+    padding: 5px 10px 0 5px;
     overflow:hidden;
 }
 
@@ -686,6 +694,18 @@ tr:nth-child(odd) {
 input[type='checkbox']{
     position: relative;
 }
+
+/* EXPERIMENT STEPS */
+/* more space for the steps / links */
+.list {
+    margin-top: 10px;
+}
+
+.finished {
+    border-color: #58FA58;
+}
+
+/* END EXPERIMENT STEPS */
 
 .col-md-6 input{
     width: 95%;
@@ -862,6 +882,16 @@ input[type='checkbox']{
     padding-left: 20px;
 }
 
+/* TITLE */
+.title a {
+    color: #888;
+}
+
+.title a:hover {
+    color:#29AEB9 !important;
+    transition-duration: 500ms;
+}
+
 .title_view {
     font-size:  160%;
 }
@@ -1003,7 +1033,7 @@ code {
     overflow:hidden;
     background:#343434;
     display:none;
-    position:absolute;
+    position:fixed;
     top: 0;
     left: 0;
     width:20%;
@@ -1077,6 +1107,15 @@ h3.togglable-next {
 
 .bodyToggle {
     display: none;
+}
+
+.bodyToggleImg {
+    float: right;
+    margin-top: 3px;
+}
+
+p.title {
+    cursor: pointer;
 }
 
 .itemsTypesEditor {

@@ -16,29 +16,30 @@ use Exception;
  * Display profile of current user
  *
  */
-try {
-    require_once 'app/init.inc.php';
-    $pageTitle = _('Profile');
-    require_once 'app/head.inc.php';
+require_once 'app/init.inc.php';
+$App->pageTitle = _('Profile');
 
+try {
     // get total number of experiments
     $Entity = new Experiments($Users);
     $Entity->setUseridFilter();
     $itemsArr = $Entity->read();
     $count = count($itemsArr);
+
     $UserStats = new UserStats($Users, $count);
     $TagCloud = new TagCloud($Users->userid);
 
-    echo $twig->render('profile.html', array(
-        'Users' => $Users,
+    $template = 'profile.html';
+    $renderArr = array(
         'UserStats' => $UserStats,
         'TagCloud' => $TagCloud,
         'count' => $count
-    ));
+    );
 
 } catch (Exception $e) {
-    $Logs = new Logs();
-    $Logs->create('Error', $_SESSION['userid'], $e->getMessage());
-} finally {
-    require_once 'app/footer.inc.php';
+    $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
+    $template = 'error.html';
+    $renderArr = array('error' => $e->getMessage());
 }
+
+echo $App->render($template, $renderArr);

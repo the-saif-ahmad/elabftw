@@ -100,9 +100,8 @@ function toggleLock(type, id) {
         type: type,
         id: id
     }).done(function(data) {
-        var json = JSON.parse(data);
-        if (json.res) {
-            notif(json.msg, 'ok');
+        if (data.res) {
+            notif(data.msg, 'ok');
             // change the lock icon
             current = $('#lock').attr('src');
             if (current === 'app/img/lock-gray.png') {
@@ -111,7 +110,7 @@ function toggleLock(type, id) {
                 $('#lock').attr('src', 'app/img/lock-gray.png');
             }
         } else {
-            notif(json.msg, 'ko');
+            notif(data.msg, 'ko');
         }
     });
 }
@@ -127,11 +126,10 @@ function quickSave(type, id) {
         date : document.getElementById('datepicker').value,
         body : tinymce.activeEditor.getContent()
     }).done(function(data) {
-        var json = JSON.parse(data);
-        if (json.res) {
-            notif(json.msg, 'ok');
+        if (data.res) {
+            notif(data.msg, 'ok');
         } else {
-            notif(json.msg, 'ko');
+            notif(data.msg, 'ko');
         }
     });
 }
@@ -147,11 +145,10 @@ function makeEditableFileComment(type, itemId) {
             comment_id : $(this).attr('id'),
             id: itemId
         }).done(function(data) {
-            var json = JSON.parse(data);
-            if (json.res) {
-                notif(json.msg, 'ok');
+            if (data.res) {
+                notif(data.msg, 'ok');
             } else {
-                notif(json.msg, 'ko');
+                notif(data.msg, 'ko');
             }
         });
 
@@ -176,15 +173,14 @@ function uploadsDestroy(id, type, itemId, confirmText) {
             id: itemId,
             type: type
         }).done(function(data) {
-            var json = JSON.parse(data);
-            if (json.res) {
-                notif(json.msg, 'ok');
+            if (data.res) {
+                notif(data.msg, 'ok');
                 if (type === 'items') {
                     type = 'database';
                 }
                 $("#filesdiv").load(type + ".php?mode=edit&id=" + itemId + " #filesdiv");
             } else {
-                notif(json.msg, 'ko');
+                notif(data.msg, 'ko');
             }
         });
     }
@@ -250,18 +246,16 @@ function getQueryParams(qs) {
 function decodeAsn1(path, expId) {
     $.post('app/controllers/ExperimentsController.php', {
         asn1: path,
-        exp_id: expId
+        id: expId
     }).done(function(data) {
-        var json = JSON.parse(data);
-        $('#decodedDiv').html(json.msg);
+        $('#decodedDiv').html(data.msg);
     });
 }
 
 function generateApiKey() {
     $.post('app/controllers/UsersController.php', {
         generateApiKey: true
-    }).done(function(data) {
-        var json = JSON.parse(data);
+    }).done(function() {
         $("#api_div").load("profile.php #api_div");
     });
 }

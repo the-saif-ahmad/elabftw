@@ -1,17 +1,20 @@
+{% extends 'base.html' %}
+
+{% block body %}
 <!-- USER INFOS -->
 <section class='box'>
     <img src='app/img/user.png' alt='user' /> <h4 style='display:inline'>{% trans %}Infos{% endtrans %}</h4>
     <hr>
     <div>
-        <p>{{ Users.userData['firstname'] }} {{ Users.userData['lastname'] }} ({{ Users.userData['email'] }})</p>
+        <p>{{ App.Users.userData.fullname|raw }} ({{ App.Users.userData.email }})</p>
     <p>{{ count }} {% trans %}
         experiments done since
-        {% endtrans %} {{ Users.userData['register_date']|date("l jS \\of F Y") }}</p>
+        {% endtrans %} {{ App.Users.userData.register_date|date("l jS \\of F Y") }}</p>
         <p><a href='ucp.php'>{% trans %}Go to user control panel{% endtrans %}</a>
         <!-- DEMO DISABLE API
         <div id='api_div'><h4>{% trans %}API key{% endtrans %}</h4>
-            {% if Users.userData['api_key']|length > 0 %}
-            <input value='{{ Users.userData['api_key'] }}'></input>
+            {% if App.Users.userData.api_key|length > 0 %}
+            <input value='{{ App.Users.userData.api_key }}'></input>
             {% endif %}
             <button class='button' onClick='generateApiKey()'>{% trans %}Generate an API Key{% endtrans %}</button></p>
         </div -->
@@ -44,7 +47,9 @@
             ]);
             var options = {
                 title: '{% trans %}
-                      Experiments
+                      Experiment
+                {% plural 2 %}
+                Experiments
                       {% endtrans %}',
             backgroundColor: '#fff',
             colors: [
@@ -70,15 +75,17 @@
     <hr>
     <div>
         {# handle minimum tag count #}
-        {% if TagCloud.cloudArr|length <= 10 %}
+        {% set cloudArr = TagCloud.getCloudArr %}
+        {% if cloudArr|length <= 10 %}
             {% trans %}
                 Not enough tags to make a tagcloud
             {% endtrans %}
         {% else %}
-        {% for tag, class in TagCloud.cloudArr %}
+        {% for tag, class in cloudArr %}
             <a href='experiments.php?mode=show&tag={{ tag|raw }}' class='{{ class }}'>{{ tag|raw }}</a>
         {% endfor %}
 
         {% endif %}
     </div>
 </section>
+{% endblock body %}

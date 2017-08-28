@@ -12,26 +12,27 @@ namespace Elabftw\Elabftw;
 
 use Exception;
 use Swift_Message;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * All about the comments
  */
-class Comments
+class Comments implements CrudInterface
 {
-    /** instance of Entity */
-    public $Entity;
+    /** @var Db $Db SQL Database */
+    protected $Db;
 
-    /** pdo object */
-    protected $pdo;
+    /** @var Experiments $Entity instance of Experiments */
+    public $Entity;
 
     /**
      * Constructor
      *
-     * @param Entity $entity
+     * @param Experiments $entity
      */
-    public function __construct(Entity $entity)
+    public function __construct(Experiments $entity)
     {
-        $this->pdo = Db::getConnection();
+        $this->Db = Db::getConnection();
         $this->Entity = $entity;
     }
 
@@ -47,7 +48,7 @@ class Comments
 
         $sql = "INSERT INTO experiments_comments(datetime, exp_id, comment, userid)
             VALUES(:datetime, :exp_id, :comment, :userid)";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindValue(':datetime', date("Y-m-d H:i:s"));
         $req->bindParam(':exp_id', $this->Entity->id);
         $req->bindParam(':comment', $comment);
@@ -72,7 +73,7 @@ class Comments
 
         // get the first and lastname of the commenter
         $sql = "SELECT CONCAT(firstname, ' ', lastname) AS fullname FROM users WHERE userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':userid', $this->Entity->Users->userid);
         $req->execute();
         $commenter = $req->fetch();
@@ -80,7 +81,7 @@ class Comments
         // get email of the XP owner
         $sql = "SELECT email, userid, CONCAT(firstname, ' ', lastname) AS fullname FROM users
             WHERE userid = (SELECT userid FROM experiments WHERE id = :id)";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':id', $this->Entity->id);
         $req->execute();
         $users = $req->fetch();
@@ -91,9 +92,9 @@ class Comments
         }
 
         // Create the message
-        $url = 'https://' . $_SERVER['SERVER_NAME'] . Tools::getServerPort() . $_SERVER['PHP_SELF'];
-        $url = str_replace('app/controllers/CommentsController.php', 'experiments.php', $url);
-        $full_url = $url . "?mode=view&id=" . $this->Entity->id;
+        $Request = Request::createFromGlobals();
+        $url = 'https://' . $Request->getHttpHost() . '/experiments.php';
+        $url .= "?mode=view&id=" . $this->Entity->id;
 
         $footer = "\n\n~~~\nSent from eLabFTW https://www.elabftw.net\n";
 
@@ -108,7 +109,7 @@ class Comments
         ->setBody(sprintf(
             _('Hi. %s left a comment on your experiment. Have a look: %s'),
             $commenter['fullname'],
-            $full_url
+            $url
         ) . $footer);
         $Email = new Email(new Config);
         $mailer = $Email->getMailer();
@@ -121,14 +122,14 @@ class Comments
      *
      * @return array|false results or false if no comments
      */
-    public function read()
+    public function readAll()
     {
         $sql = "SELECT experiments_comments.*,
             CONCAT(users.firstname, ' ', users.lastname) AS fullname
             FROM experiments_comments
             LEFT JOIN users ON (experiments_comments.userid = users.userid)
             WHERE exp_id = :id ORDER BY experiments_comments.datetime ASC";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':id', $this->Entity->id);
         $req->execute();
         if ($req->rowCount() > 0) {
@@ -156,7 +157,7 @@ class Comments
         $sql = "UPDATE experiments_comments SET
             comment = :comment
             WHERE id = :id AND userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':comment', $comment);
         $req->bindParam(':id', $id);
         $req->bindParam(':userid', $this->Entity->Users->userid);
@@ -168,15 +169,14 @@ class Comments
      * Destroy a comment
      *
      * @param int $id id of the comment
-     * @param int $userid
      * @return bool
      */
-    public function destroy($id, $userid)
+    public function destroy($id)
     {
         $sql = "DELETE FROM experiments_comments WHERE id = :id AND userid = :userid";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':id', $id);
-        $req->bindParam(':userid', $userid);
+        $req->bindParam(':userid', $this->Entity->Users->userid);
 
         return $req->execute();
     }
@@ -189,7 +189,7 @@ class Comments
     public function destroyAll()
     {
         $sql = "DELETE FROM experiments_comments WHERE exp_id = :id";
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->bindParam(':id', $this->Entity->id);
 
         return $req->execute();

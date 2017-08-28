@@ -23,43 +23,48 @@ use Defuse\Crypto\Key as Key;
  */
 class Update
 {
-    /** our favorite pdo object */
-    private $pdo;
+    /** @var Db $Db SQL Database */
+    private $Db;
 
-    /** instance of Config */
+    /** @var Config $Config instance of Config */
     public $Config;
 
     /**
      * /////////////////////////////////////////////////////
      * UPDATE THIS AFTER ADDING A BLOCK TO runUpdateScript()
      * UPDATE IT ALSO IN INSTALL/ELABFTW.SQL (last line)
-     * AND REFLECT THE CHANGE IN INSTALL/ELABFTW.SQL
      * AND REFLECT THE CHANGE IN tests/_data/phpunit.sql
      * /////////////////////////////////////////////////////
      */
-    const REQUIRED_SCHEMA = '22';
+    const REQUIRED_SCHEMA = '31';
 
     /**
-     * Init Update with Config and pdo
+     * Init Update with Config and Db
      *
      * @param Config $config
      */
     public function __construct(Config $config)
     {
         $this->Config = $config;
-        $this->pdo = Db::getConnection();
+        $this->Db = Db::getConnection();
     }
 
     /**
      * Update the database schema if needed.
+     * Returns true if there is no need to update
      *
-     * @return string[] $msg_arr
+     * @return bool|string[] $msg_arr
      */
     public function runUpdateScript()
     {
+        $current_schema = $this->Config->configArr['schema'];
+
+        if ($current_schema === self::REQUIRED_SCHEMA) {
+            return true;
+        }
+
         $msg_arr = array();
 
-        $current_schema = $this->Config->configArr['schema'];
 
         if ($current_schema < 2) {
             // 20150727
@@ -180,6 +185,60 @@ class Update
             $this->schema22();
             $this->updateSchema(22);
         }
+
+        if ($current_schema < 23) {
+            // 20170517
+            $this->schema23();
+            $this->updateSchema(23);
+        }
+
+        if ($current_schema < 24) {
+            // 20170720
+            $this->schema24();
+            $this->updateSchema(24);
+        }
+
+        if ($current_schema < 25) {
+            // 20170808
+            $this->schema25();
+            $this->updateSchema(25);
+        }
+
+        if ($current_schema < 26) {
+            // 20170808
+            $this->schema26();
+            $this->updateSchema(26);
+        }
+
+        if ($current_schema < 27) {
+            // 20170808
+            $this->schema27();
+            $this->updateSchema(27);
+        }
+
+        if ($current_schema < 28) {
+            // 20170811
+            $this->schema28();
+            $this->updateSchema(28);
+        }
+
+        if ($current_schema < 29) {
+            // 20170813
+            $this->schema29();
+            $this->updateSchema(29);
+        }
+
+        if ($current_schema < 30) {
+            // 20170818
+            $this->schema30();
+            $this->updateSchema(30);
+        }
+
+        if ($current_schema < 31) {
+            // 20170821
+            $this->schema31();
+            $this->updateSchema(31);
+        }
         // place new schema functions above this comment
 
         // remove files in uploads/tmp
@@ -229,7 +288,7 @@ class Update
     private function schema2()
     {
         $sql = "ALTER TABLE teams CHANGE deletable_xp deletable_xp TINYINT(1) NOT NULL DEFAULT '1'";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Problem updating!');
         }
     }
@@ -242,7 +301,7 @@ class Update
     private function schema3()
     {
         $sql = "ALTER TABLE experiments_revisions CHANGE exp_id item_id INT(10) UNSIGNED NOT NULL";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Problem updating!');
         }
     }
@@ -256,7 +315,7 @@ class Update
     {
         $sql = "CREATE TABLE IF NOT EXISTS `team_groups` ( `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , `name` VARCHAR(255) NOT NULL , `team` INT UNSIGNED NOT NULL , PRIMARY KEY (`id`));";
         $sql2 = "CREATE TABLE IF NOT EXISTS `users2team_groups` ( `userid` INT UNSIGNED NOT NULL , `groupid` INT UNSIGNED NOT NULL );";
-        if (!$this->pdo->q($sql) || !$this->pdo->q($sql2)) {
+        if (!$this->Db->q($sql) || !$this->Db->q($sql2)) {
             throw new Exception('Problem updating!');
         }
     }
@@ -283,10 +342,10 @@ class Update
         $sql = "ALTER TABLE experiments MODIFY body MEDIUMTEXT";
         $sql2 = "ALTER TABLE items MODIFY body MEDIUMTEXT";
 
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Cannot change type of column "body" in table "experiments"!');
         }
-        if (!$this->pdo->q($sql2)) {
+        if (!$this->Db->q($sql2)) {
             throw new Exception('Cannot change type of column "body" in table "items"!');
         }
     }
@@ -304,16 +363,16 @@ class Update
         // Add a hash_algorithm column to store the algorithm used to create
         // the hash.
         $sql3 = "ALTER TABLE `uploads` CHANGE `md5` `hash` VARCHAR(32);";
-        if (!$this->pdo->q($sql3)) {
+        if (!$this->Db->q($sql3)) {
             throw new Exception('Error renaming column "md5" in table "uploads"!');
         }
         $sql4 = "ALTER TABLE `uploads` MODIFY `hash` VARCHAR(128);";
-        if (!$this->pdo->q($sql4)) {
+        if (!$this->Db->q($sql4)) {
             throw new Exception('Error changing column type of "hash" in table "uploads"!');
         }
         // Already existing hashes are exclusively md5
         $sql5 = "ALTER TABLE `uploads` ADD `hash_algorithm` VARCHAR(10) DEFAULT NULL; UPDATE `uploads` SET `hash_algorithm`='md5' WHERE `hash` IS NOT NULL;";
-        if (!$this->pdo->q($sql5)) {
+        if (!$this->Db->q($sql5)) {
             throw new Exception('Error setting hash algorithm for existing entries!');
         }
     }
@@ -326,7 +385,7 @@ class Update
     private function schema8()
     {
         $sql = "ALTER TABLE `users` DROP `username`";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Error removing username column');
         }
     }
@@ -360,7 +419,7 @@ class Update
 
         // now update the stamppass from the teams
         $sql = 'SELECT team_id, stamppass FROM teams';
-        $req = $this->pdo->prepare($sql);
+        $req = $this->Db->prepare($sql);
         $req->execute();
         while ($teams = $req->fetch()) {
             if ($teams['stamppass']) {
@@ -371,7 +430,7 @@ class Update
                 }
                 $new_ciphertext = Crypto::encrypt($plaintext, $new_key);
                 $sql = 'UPDATE teams SET stamppass = :stamppass WHERE team_id = :team_id';
-                $update = $this->pdo->prepare($sql);
+                $update = $this->Db->prepare($sql);
                 $update->bindParam(':stamppass', $new_ciphertext);
                 $update->bindParam(':team_id', $teams['team_id']);
                 $update->execute();
@@ -413,7 +472,7 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
     {
         $sql = "CREATE TABLE IF NOT EXISTS `team_events` ( `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , `team` INT UNSIGNED NOT NULL , `item` INT UNSIGNED NOT NULL, `start` VARCHAR(255) NOT NULL, `end` VARCHAR(255), `title` VARCHAR(255) NULL DEFAULT NULL, `userid` INT UNSIGNED NOT NULL, PRIMARY KEY (`id`));";
         $sql2 = "ALTER TABLE `items_types` ADD `bookable` BOOL NULL DEFAULT FALSE";
-        if (!$this->pdo->q($sql) || !$this->pdo->q($sql2)) {
+        if (!$this->Db->q($sql) || !$this->Db->q($sql2)) {
             throw new Exception('Problem updating to schema 10!');
         }
     }
@@ -425,7 +484,7 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
     private function schema11()
     {
         $sql = "ALTER TABLE `users` ADD `show_team` TINYINT NOT NULL DEFAULT '0'";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Problem updating to schema 11!');
         }
     }
@@ -456,15 +515,15 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
           `userid` int(10) UNSIGNED NOT NULL,
           PRIMARY KEY (`id`));";
 
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Problem updating to schema 13!');
         }
 
         // update the links. Use % because we might have index.html at the end
         $sql = "UPDATE teams
-            SET link_href = 'https://elabftw.readthedocs.io'
+            SET link_href = 'https://doc.elabftw.net'
             WHERE link_href LIKE 'doc/_build/html%'";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Problem updating to schema 13!');
         }
     }
@@ -476,7 +535,7 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
     private function schema14()
     {
         $sql = "ALTER TABLE `items_types` CHANGE `bgcolor` `color` VARCHAR(6)";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Error updating to schema14');
         }
     }
@@ -488,7 +547,7 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
     private function schema15()
     {
         $sql = "ALTER TABLE `users` ADD `api_key` VARCHAR(255) NULL DEFAULT NULL AFTER `show_team`;";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Error updating to schema15');
         }
     }
@@ -499,7 +558,7 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
     private function schema16()
     {
         $sql = "ALTER TABLE `users` ADD `default_vis` VARCHAR(255) NULL DEFAULT 'team';";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Error updating to schema16');
         }
     }
@@ -520,7 +579,7 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
           `slo_binding` VARCHAR(255) NOT NULL,
           `x509` text NOT NULL,
           PRIMARY KEY (`id`));";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Error updating to schema20');
         }
 
@@ -537,7 +596,7 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
             ('saml_nameidformat', NULL),
             ('saml_x509', NULL),
             ('saml_privatekey', NULL)";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Error updating to schema20');
         }
     }
@@ -551,11 +610,11 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
     private function schema21()
     {
         $sql = "ALTER TABLE `users` DROP `display`;";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Error updating to schema21');
         }
         $sql = "ALTER TABLE `status` ADD `is_timestampable` TINYINT(1) NOT NULL DEFAULT 1;";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Error updating to schema21');
         }
     }
@@ -573,8 +632,165 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
             ('saml_email', NULL),
             ('saml_firstname', NULL),
             ('saml_lastname', NULL)";
-        if (!$this->pdo->q($sql)) {
+        if (!$this->Db->q($sql)) {
             throw new Exception('Error updating to schema22');
+        }
+    }
+
+    /**
+     * Change column type of body in 'items_revisions' and 'experiments_revisions' to 'mediumtext'
+     * See elabftw/elabftw#429
+     *
+     * @throws Exception
+     */
+    private function schema23()
+    {
+        $sql = "ALTER TABLE experiments_revisions MODIFY body MEDIUMTEXT";
+        $sql2 = "ALTER TABLE items_revisions MODIFY body MEDIUMTEXT";
+
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot change type of column "body" in table "experiments_revisions"!');
+        }
+        if (!$this->Db->q($sql2)) {
+            throw new Exception('Cannot change type of column "body" in table "items_revisions"!');
+        }
+    }
+
+    /**
+     * Add a column for team_orgid which is the ID of the team given by SAML auth
+     *
+     * @throws Exception
+     */
+    private function schema24()
+    {
+        $sql = "ALTER TABLE `teams` ADD `team_orgid` VARCHAR(255) NULL DEFAULT NULL;";
+
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot add team_orgid to teams table!');
+        }
+    }
+
+    /**
+     * Add a column for single user layout pref. See #410
+     *
+     * @throws Exception
+     */
+    private function schema25()
+    {
+        $sql = "ALTER TABLE `users` ADD `single_column_layout` TINYINT(1) NOT NULL DEFAULT 0;";
+
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot add single_column_layout to users table!');
+        }
+    }
+
+    /**
+     * Add a user preference for enabling CJK fonts for PDF generation. See #350
+     *
+     * @throws Exception
+     */
+    private function schema26()
+    {
+        $sql = "ALTER TABLE `users` ADD `cjk_fonts` TINYINT(1) NOT NULL DEFAULT 0;";
+
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot add cjk_fonts to users table!');
+        }
+    }
+
+    /**
+     * Add a user preference for orderby
+     *
+     * @throws Exception
+     */
+    private function schema27()
+    {
+        $sql = "ALTER TABLE `users` ADD `orderby` VARCHAR(255) NULL DEFAULT NULL;";
+        $sql2 = "ALTER TABLE `users` ADD `sort` VARCHAR(255) NULL DEFAULT NULL;";
+
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot add orderby to users table!');
+        }
+        if (!$this->Db->q($sql2)) {
+            throw new Exception('Cannot add sort to users table!');
+        }
+    }
+
+    /**
+     * Add experiments steps
+     *
+     * @throws Exception
+     */
+    private function schema28()
+    {
+        $sql = "CREATE TABLE `experiments_steps` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
+            `item_id` INT UNSIGNED NOT NULL ,
+            `body` TEXT NOT NULL ,
+            `ordering` INT UNSIGNED NULL DEFAULT NULL ,
+            `finished` TINYINT(1) NOT NULL DEFAULT '0',
+            `finished_time` DATETIME NULL DEFAULT NULL,
+            PRIMARY KEY (`id`));";
+
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot add experiments_steps table!');
+        }
+    }
+
+    /**
+     * Add a user preference for disabling TinyMCE and using markdown
+     *
+     * @throws Exception
+     */
+    private function schema29()
+    {
+        $sql = "ALTER TABLE `users` ADD `use_markdown` TINYINT(1) NOT NULL DEFAULT 0;";
+
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot add use_markdown to users table!');
+        }
+    }
+
+    /**
+     * Some saml config entries were not added to the elabftw.sql install file
+     * So this is to fix that
+     */
+    private function schema30()
+    {
+        if (!in_array('saml_email', array_keys($this->Config->configArr))) {
+            $sql = "INSERT INTO config (conf_name, conf_value) VALUES ('saml_email', NULL)";
+            if (!$this->Db->q($sql)) {
+                throw new Exception('Cannot add saml_email to config!');
+            }
+        }
+        if (!in_array('saml_firstname', array_keys($this->Config->configArr))) {
+            $sql = "INSERT INTO config (conf_name, conf_value) VALUES ('saml_firstname', NULL)";
+            if (!$this->Db->q($sql)) {
+                throw new Exception('Cannot add saml_firstname to config!');
+            }
+        }
+        if (!in_array('saml_lastname', array_keys($this->Config->configArr))) {
+            $sql = "INSERT INTO config (conf_name, conf_value) VALUES ('saml_lastname', NULL)";
+            if (!$this->Db->q($sql)) {
+                throw new Exception('Cannot add saml_lastname to config!');
+            }
+        }
+    }
+
+    /**
+     * Add tags to experiments_templates
+     *
+     */
+    private function schema31()
+    {
+        $sql = "CREATE TABLE `elabftw`.`experiments_tpl_tags` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `tag` VARCHAR(255) NOT NULL,
+            `item_id` INT UNSIGNED NOT NULL,
+            `userid` INT UNSIGNED NOT NULL,
+            PRIMARY KEY (`id`));";
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot create experiments_tpl_tags table');
         }
     }
 }

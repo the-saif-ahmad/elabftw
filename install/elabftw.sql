@@ -37,6 +37,20 @@ CREATE TABLE `config` (
   PRIMARY KEY (`conf_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- --------------------------------------------------------
+--
+-- Table structure for table `experiments_steps`
+--
+DROP TABLE IF EXISTS `experiments_steps`;
+CREATE TABLE `experiments_steps` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
+            `item_id` INT UNSIGNED NOT NULL ,
+            `body` TEXT NOT NULL ,
+            `ordering` INT UNSIGNED NULL DEFAULT NULL ,
+            `finished` TINYINT(1) NOT NULL DEFAULT '0',
+            `finished_time` DATETIME NULL DEFAULT NULL,
+            PRIMARY KEY (`id`)
+        )ENGINE=InnoDB DEFAULT CHARSET=utf8;
 --
 -- Table structure for table `experiments`
 --
@@ -97,7 +111,7 @@ DROP TABLE IF EXISTS `experiments_revisions`;
 CREATE TABLE `experiments_revisions` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `item_id` int(10) unsigned NOT NULL,
-  `body` text NOT NULL,
+  `body` mediumtext NOT NULL,
   `savedate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `userid` int(11) NOT NULL,
   PRIMARY KEY (`id`)
@@ -111,7 +125,7 @@ DROP TABLE IF EXISTS `items_revisions`;
 CREATE TABLE `items_revisions` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `item_id` int(10) unsigned NOT NULL,
-  `body` text NOT NULL,
+  `body` mediumtext NOT NULL,
   `savedate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `userid` int(11) NOT NULL,
   PRIMARY KEY (`id`)
@@ -253,6 +267,7 @@ CREATE TABLE `teams` (
   `stampprovider` text DEFAULT NULL,
   `stampcert` text DEFAULT NULL,
   `stamphash` varchar(10) DEFAULT 'sha256',
+  `team_orgid` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`team_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -297,6 +312,8 @@ CREATE TABLE `users` (
   `register_date` bigint(20) unsigned NOT NULL,
   `token` varchar(255) DEFAULT NULL,
   `limit_nb` tinyint(255) NOT NULL DEFAULT '15',
+  `orderby` varchar(255) NULL DEFAULT NULL,
+  `sort` varchar(255) NULL DEFAULT NULL,
   `sc_create` varchar(1) NOT NULL DEFAULT 'c',
   `sc_edit` varchar(1) NOT NULL DEFAULT 'e',
   `sc_submit` varchar(1) NOT NULL DEFAULT 's',
@@ -308,6 +325,9 @@ CREATE TABLE `users` (
   `lang` varchar(5) NOT NULL DEFAULT 'en_GB',
   `api_key` varchar(255) NULL DEFAULT NULL,
   `default_vis` varchar(255) NULL DEFAULT 'team',
+  `single_column_layout` tinyint(1) NOT NULL DEFAULT 0,
+  `cjk_fonts` tinyint(1) NOT NULL DEFAULT 0,
+  `use_markdown` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`userid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -385,6 +405,16 @@ CREATE TABLE IF NOT EXISTS `idps` (
 
 -- --------------------------------------------------------
 
+--
+-- experiments_tpl_tags
+--
+CREATE TABLE IF NOT EXISTS `experiments_tpl_tags` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tag` VARCHAR(255) NOT NULL,
+    `item_id` INT UNSIGNED NOT NULL,
+    `userid` INT UNSIGNED NOT NULL,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- ELABFTW
 /* the default item_types */
@@ -407,7 +437,7 @@ INSERT INTO `experiments_templates` (`team`, `body`, `name`, `userid`) VALUES
 <p><span style=\"font-size: 14pt;\"><strong>Results :</strong></span></p><p>&nbsp;</p>', 'default', 0);
 /* the default team */
 INSERT INTO `teams` (`team_id`, `team_name`, `deletable_xp`, `link_name`, `link_href`) VALUES
-(1, 'Default team', 1, 'Documentation', 'https://elabftw.readthedocs.io');
+(1, 'Default team', 1, 'Documentation', 'https://doc.elabftw.net');
 /* the groups */
 INSERT INTO `groups` (`group_id`, `group_name`, `is_sysadmin`, `is_admin`, `can_lock`) VALUES
 (1, 'Sysadmins', 1, 1, 0),
@@ -448,6 +478,9 @@ INSERT INTO `config` (`conf_name`, `conf_value`) VALUES
 ('saml_x509', NULL),
 ('saml_privatekey', NULL),
 ('saml_team', NULL),
+('saml_email', NULL),
+('saml_firstname', NULL),
+('saml_lastname', NULL),
 ('local_login', '1'),
 ('local_register', '1'),
-('schema', '22');
+('schema', '31');
