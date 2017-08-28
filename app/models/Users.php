@@ -572,7 +572,9 @@ class Users
             throw new Exception(_("Please input your current password!"));
         }
         // PASSWORD CHANGE
-        if (strlen($params['newpass']) >= $this->Auth::MIN_PASSWORD_LENGTH) {
+        // fix for php56
+        $min = Auth::MIN_PASSWORD_LENGTH;
+        if (strlen($params['newpass']) >= $min) {
             if ($params['newpass'] != $params['cnewpass']) {
                 throw new Exception(_('The passwords do not match!'));
             }
@@ -637,7 +639,9 @@ class Users
         }
 
         if (!$this->Auth->checkPasswordLength($password)) {
-            $error = sprintf(_('Password must contain at least %s characters.'), $this->Auth::MIN_PASSWORD_LENGTH);
+            // fix for php56
+            $min = Auth::MIN_PASSWORD_LENGTH;
+            $error = sprintf(_('Password must contain at least %s characters.'), $min);
             throw new Exception($error);
         }
 
