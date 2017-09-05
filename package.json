@@ -1,6 +1,6 @@
 {
   "name": "elabftw",
-  "version": "1.7.2",
+  "version": "1.7.5",
   "description": "Free and open source electronic lab notebook for research labs",
   "main": "Gruntfile.js",
   "directories": {
@@ -11,12 +11,12 @@
     "bootstrap": "^3.3.7",
     "dropzone": "^5.1.1",
     "file-saver": "^1.3.3",
-    "fullcalendar": "^3.4.0",
+    "fullcalendar": "^3.5.0",
     "jquery": "^3.2.1",
     "jquery-ui-dist": "^1.12.1",
     "jquery.complexify": "^0.5.2",
     "keymaster": "^1.6.2",
-    "tinymce": "^4.6.5",
+    "tinymce": "^4.6.6",
     "tinymce-mention": "^4.0.2",
     "vanderlee-colorpicker": "^1.2.13"
   },

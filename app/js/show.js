@@ -25,8 +25,12 @@ $(document).ready(function(){
         // and put it in the div and show the div
         }).done(function(data) {
             $('#bodyToggle_' + id).html(data.msg);
+            // get the width of the parent. The -30 is to make it smaller than parent even with the margins
+            var width = $('#parent_' + id).width() - 30;
+            // adjust the width of the children
+            $('#bodyToggle_' + id).css('width', width);
+            // display div
             $('#bodyToggle_' + id).toggle();
-
         });
     });
 
@@ -128,19 +132,24 @@ $(document).ready(function(){
 
     // UPDATE THE STATUS/ITEM TYPE OF SELECTED BOXES ON SELECT CHANGE
     $('#catChecked').on('change', function() {
+        var ajaxs = [];
         // get the item id of all checked boxes
         var checked = getCheckedBoxes();
         // loop on it and update the status/item type
         $.each(checked, function(index, value) {
-            $.post('app/controllers/EntityController.php', {
+            ajaxs.push($.post('app/controllers/EntityController.php', {
                 updateCategory : true,
                 id : value,
                 categoryId : $('#catChecked').val(),
                 type : $('#type').data('type')
-            });
+            }));
         });
         // reload the page once it's done
-        location.reload();
+        // a simple reload would not work here
+        // we need to use when/then
+        $.when.apply(null, ajaxs).then(function (){
+            window.location.reload();
+        });
     });
 
     // MAKE ZIP/CSV
@@ -166,11 +175,11 @@ $(document).ready(function(){
         $.each(checked, function(index, value) {
             $.post('app/controllers/EntityController.php', {
                 destroy: true,
-                id: value
+                id: value,
+                type: $('#type').data('type')
             });
+            // hide the div
+            $('#parent_' + value).hide(200);
         });
-        // reload the page once it's done
-        window.location.reload();
     });
-
 });
