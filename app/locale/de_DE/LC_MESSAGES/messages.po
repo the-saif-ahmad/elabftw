@@ -3,7 +3,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 1.8.9\n"
+"X-Generator: Poedit 2.0.4\n"
 "Project-Id-Version: elabftw\n"
 "Language: de\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
@@ -246,7 +246,7 @@ msgid "Delete an account"
 msgstr "Löschen Sie ein Konto"
 
 #: admin.php:220
-msgid "Type EMAIL ADDRESS of a member to delete this user and all his experiments/files forever:"
+msgid "Type EMAIL ADDRESS of a member to delete this user and all their experiments/files forever:"
 msgstr "Geben Sie die E-Mail-Adresse eines Mitglieds an, um alle seine Experimente / Dateien permanent zu löschen:"
 
 #: admin.php:222

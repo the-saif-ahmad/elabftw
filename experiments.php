@@ -28,9 +28,14 @@ try {
 
     // VIEW
     if ($Request->query->get('mode') === 'view') {
-
         $Entity->setId($Request->query->get('id'));
         $Entity->canOrExplode('read');
+
+        // LINKS
+        $linksArr = $Entity->Links->readAll();
+
+        // COMMENTS
+        $commentsArr = $Entity->Comments->readAll();
 
         // UPLOADS
         $UploadsView = new UploadsView($Entity->Uploads);
@@ -41,13 +46,14 @@ try {
             'Ev' => $EntityView,
             'Entity' => $Entity,
             'Uv' => $UploadsView,
+            'linksArr' => $linksArr,
+            'commentsArr' => $commentsArr,
             'cleanTitle' => Tools::getCleanTitle($Entity->entityData['title']),
             'mode' => 'view'
         );
 
     // EDIT
     } elseif ($Request->query->get('mode') === 'edit') {
-
         $Entity->setId($Request->query->get('id'));
         // check permissions
         $Entity->canOrExplode('write');
@@ -56,10 +62,20 @@ try {
             throw new Exception(_('<strong>This item is locked.</strong> You cannot edit it.'));
         }
 
+        // REVISIONS
         $Revisions = new Revisions($Entity);
-        // Uploads
+
+        // UPLOADS
         $UploadsView = new UploadsView($Entity->Uploads);
+
+        // TEAM GROUPS
         $TeamGroups = new TeamGroups($Entity->Users);
+
+        // LINKS
+        $linksArr = $Entity->Links->readAll();
+
+        // STEPS
+        $stepsArr = $Entity->Steps->readAll();
 
         $template = 'edit.html';
 
@@ -70,8 +86,11 @@ try {
             'Revisions' => $Revisions,
             'Categories' => $Status,
             'TeamGroups' => $TeamGroups,
+            'linksArr' => $linksArr,
+            'stepsArr' => $stepsArr,
             'cleanTitle' => Tools::getCleanTitle($Entity->entityData['title']),
-            'maxUploadSize' => Tools::returnMaxUploadSize()
+            'maxUploadSize' => Tools::returnMaxUploadSize(),
+            'lang' => Tools::getCalendarLang($App->Users->userData['lang'])
         );
 
     // DEFAULT MODE IS SHOW
@@ -146,16 +165,13 @@ try {
         $Templates = new Templates($Entity->Users);
         $templatesArr = $Templates->readFromUserid();
 
-
         // READ ALL ITEMS
 
         // related filter
         if (Tools::checkId($Request->query->get('related'))) {
             $searchType = 'related';
             $itemsArr = $Entity->readRelated($Request->query->get('related'));
-
         } else {
-
             // filter by user only if we are not making a search
             if (!$Users->userData['show_team'] && ($searchType === '' || $searchType === 'filter')) {
                 $Entity->setUseridFilter();
@@ -176,11 +192,9 @@ try {
             'query' => $query
         );
     }
-
 } catch (InvalidArgumentException $e) {
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
-
 } catch (Exception $e) {
     $debug = false;
     $message = $e->getMessage();
