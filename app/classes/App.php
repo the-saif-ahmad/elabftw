@@ -62,18 +62,16 @@ class App
      * @param Request $request
      * @param Config $config
      * @param Logs $logs
-     * @param Users $users
      */
     public function __construct(
         Request $request,
         Config $config,
-        Logs $logs,
-        Users $users
+        Logs $logs
     ) {
         $this->Request = $request;
         $this->Config = $config;
         $this->Logs = $logs;
-        $this->Users = $users;
+        $this->Users = new Users(null, new Auth($request), new Config());
 
         $this->Db = Db::getConnection();
         $this->Session = $this->Request->getSession();
@@ -82,15 +80,6 @@ class App
         $this->ok = $this->Session->getFlashBag()->get('ok', array());
         $this->ko = $this->Session->getFlashBag()->get('ko', array());
 
-        if ($this->Session->has('auth')) {
-            // todolist
-            $Todolist = new Todolist($this->Users);
-            $this->todoItems = $Todolist->readAll();
-
-            // team config
-            $Teams = new Teams($this->Users);
-            $this->teamConfigArr = $Teams->read();
-        }
     }
 
     /**
@@ -131,18 +120,6 @@ class App
     }
 
     /**
-     * Generate HTML from a twig template
-     *
-     * @param string $template template located in app/tpl/
-     * @param array $variables the variables injected in the template
-     * @return string html
-     */
-    public function render($template, $variables)
-    {
-        return $this->Twig->render($template, array_merge(array('App' => $this), $variables));
-    }
-
-    /**
      * Get the page generation time (called in the footer)
      *
      * @return float
@@ -160,5 +137,35 @@ class App
     public function getMemoryUsage()
     {
         return memory_get_usage();
+    }
+
+    /**
+     * If the current user is authenticated, load Users with an id
+     *
+     * @param Users $users
+     */
+    public function loadUser(Users $users)
+    {
+        $this->Users = $users;
+
+        // todolist
+        $Todolist = new Todolist($this->Users);
+        $this->todoItems = $Todolist->readAll();
+
+        // team config
+        $Teams = new Teams($this->Users);
+        $this->teamConfigArr = $Teams->read();
+    }
+
+    /**
+     * Generate HTML from a twig template. The App object is injected into every template.
+     *
+     * @param string $template template located in app/tpl/
+     * @param array $variables the variables injected in the template
+     * @return string html
+     */
+    public function render($template, $variables)
+    {
+        return $this->Twig->render($template, array_merge(array('App' => $this), $variables));
     }
 }

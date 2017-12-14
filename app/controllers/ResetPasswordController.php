@@ -16,10 +16,10 @@ use Defuse\Crypto\Crypto as Crypto;
 use Defuse\Crypto\Key as Key;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
+require_once '../../app/init.inc.php';
+
 try {
-    require_once '../../app/init.inc.php';
-    $Email = new Email($Config);
-    $Users = new Users(null, $Auth, $Config);
+    $Email = new Email($App->Config);
 
     if ($Request->request->has('email')) {
 
@@ -31,7 +31,7 @@ try {
         }
 
         // Get data from user
-        $user = $Users->readFromEmail($email);
+        $user = $App->Users->readFromEmail($email);
 
         // Is email in database ?
         if (empty($user)) {
@@ -54,7 +54,9 @@ try {
         $deadline = Crypto::encrypt(time() + 3600, Key::loadFromAsciiSafeString(SECRET_KEY));
 
         // build the reset link
-        $resetLink = 'https://' . $Request->getHttpHost() . '/change-pass.php';
+        $resetLink = Tools::getUrl($Request) . '/change-pass.php';
+        // not pretty but gets the job done
+        $resetLink = str_replace('app/controllers/', '', $resetLink);
         $resetLink .='?key=' . $key . '&deadline=' . $deadline . '&userid=' . $user['userid'];
 
         // Send an email with the reset link
@@ -64,7 +66,7 @@ try {
         // Give the message a subject
         ->setSubject('[eLabFTW] Password reset for ' . $user['fullname'])
         // Set the From address with an associative array
-        ->setFrom(array($Email->Config->configArr['mail_from'] => 'eLabFTW'))
+        ->setFrom(array($App->Config->configArr['mail_from'] => 'eLabFTW'))
         // Set the To addresses with an associative array
         ->setTo(array($email => $user['fullname']))
         // Give it a body
@@ -83,10 +85,10 @@ try {
     if ($Request->request->has('password') &&
         $Request->request->get('password') === $Request->request->get('cpassword')) {
 
-        $Users->setId($Request->request->get('userid'));
+        $App->Users->setId($Request->request->get('userid'));
 
         // Validate key
-        if ($Users->userData['email'] != Crypto::decrypt($Request->request->get('key'), Key::loadFromAsciiSafeString(SECRET_KEY))) {
+        if ($App->Users->userData['email'] != Crypto::decrypt($Request->request->get('key'), Key::loadFromAsciiSafeString(SECRET_KEY))) {
             throw new Exception('Wrong key for resetting password');
         }
 
@@ -98,11 +100,11 @@ try {
         }
 
         // Replace new password in database
-        if (!$Users->updatePassword($Request->request->get('password'), $Request->request->get('userid'))) {
+        if (!$App->Users->updatePassword($Request->request->get('password'), $Request->request->get('userid'))) {
             throw new Exception('Error updating password');
         }
 
-        $App->Logs->create('Info', $Users->userData['email'], 'Password was changed for this user.');
+        $App->Logs->create('Info', $App->Users->userData['email'], 'Password was changed for this user.');
         $Session->getFlashBag()->add('ok', _('New password inserted. You can now login.'));
     }
 

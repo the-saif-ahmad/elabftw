@@ -110,6 +110,7 @@ class TeamGroups implements CrudInterface
         $tgArr = array_combine($idArr, $nameArr);
 
         $visibilityArr = array(
+            'public' => 'Public',
             'organization' => 'Everyone with an account',
             'team' => 'Only the team',
             'user' => 'Only me'
@@ -117,7 +118,6 @@ class TeamGroups implements CrudInterface
 
         return $visibilityArr + $tgArr;
     }
-
 
     /**
      * Get the name of a group
@@ -188,7 +188,7 @@ class TeamGroups implements CrudInterface
     /**
      * Delete a team group
      *
-     * @param string $id Id of the group to destroy
+     * @param int $id Id of the group to destroy
      * @throws Exception if it fails to delete
      * @return bool true on success
      */

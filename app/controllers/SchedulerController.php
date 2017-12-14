@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  */
 try {
     require_once '../../app/init.inc.php';
-    $Database = new Database($Users);
+    $Database = new Database($App->Users);
     $Scheduler = new Scheduler($Database);
     $Response = new JsonResponse();
 
@@ -50,17 +50,23 @@ try {
     // UPDATE START
     if ($Request->request->has('updateStart')) {
         $Scheduler->setId($Request->request->get('id'));
-        if ($Scheduler->updateStart($Request->request->get('start'), $Request->request->get('end'))) {
-            $res = true;
-            $msg = _('Saved');
+        $eventArr = $Scheduler->readFromId();
+        if ($eventArr['userid'] == $Session->get('userid')) {
+            if ($Scheduler->updateStart($Request->request->get('start'), $Request->request->get('end'))) {
+                $res = true;
+                $msg = _('Saved');
+            }
         }
     }
     // UPDATE END
     if ($Request->request->has('updateEnd')) {
         $Scheduler->setId($Request->request->get('id'));
-        if ($Scheduler->updateEnd($Request->request->get('end'))) {
-            $res = true;
-            $msg = _('Saved');
+        $eventArr = $Scheduler->readFromId();
+        if ($eventArr['userid'] == $Session->get('userid')) {
+            if ($Scheduler->updateEnd($Request->request->get('end'))) {
+                $res = true;
+                $msg = _('Saved');
+            }
         }
     }
     // DESTROY

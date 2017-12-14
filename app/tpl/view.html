@@ -29,10 +29,12 @@
     </a>
 {% endif %}
 
-<a class='elab-tooltip' href='app/controllers/EntityController.php?duplicate=1&id={{ Entity.id }}&type={{ Entity.type }}'>
-    <span>{{ 'Duplicate'|trans }}</span>
-    <img src='app/img/duplicate.png' alt='Duplicate' />
-</a>
+{% if not App.Session.has('anon') %}
+    <a class='elab-tooltip' href='app/controllers/EntityController.php?duplicate=1&id={{ Entity.id }}&type={{ Entity.type }}'>
+        <span>{{ 'Duplicate'|trans }}</span>
+        <img src='app/img/duplicate.png' alt='Duplicate' />
+    </a>
+{% endif %}
 
 <a class='elab-tooltip' href='make.php?what=pdf&id={{ Entity.id }}&type={{ Entity.type }}'>
     <span>{{ 'Make a PDF'|trans }}</span>
@@ -65,7 +67,7 @@
 {% endif %}
 
 <!-- show timestamp button if not timestamped already -->
-{% if not Entity.entityData.timestamped and Entity.isTimestampable and Entity.type == 'experiments' %}
+{% if not Entity.entityData.timestamped and Entity.isTimestampable and Entity.type == 'experiments' and not App.Session.has('anon') %}
     <a class='elab-tooltip'>
         <span>{{ 'Timestamp Experiment'|trans }}</span>
         <img id='confirmTimestamp' src='app/img/stamp.png' alt='Timestamp' />
@@ -110,9 +112,12 @@
 <!--  BODY (show only if not empty) -->
 {% set body = Entity.entityData.body %}
 {% if body != '' %}
-    {% if Entity.Users.userData.use_markdown %}
-        {% set body = Entity.entityData.body|md2html %}
-    {% endif %}
+    {% set body = Entity.entityData.body|md2html %}
+    <!-- Workaround for bug #532; long tables result in empty body returned from md2html:
+        If body is empty, reload and don't parse as markdown -->
+    {% if body|trim == '' %}
+        {% set body = Entity.entityData.body %}
+    {% endif %} 
     <div id='body_view' class='txt'>{{ body|raw }}</div>
     <br>
 {% endif %}
@@ -141,7 +146,7 @@
 
 {{ include('uploads.html') }}
 
-{% if Entity.type == 'experiments' %}
+{% if Entity.type == 'experiments' and App.Session.get('auth') %}
     <section id='expcomment_container'>
         <div id='expcomment' class='box'>
             <h3><img src='app/img/comment.png' alt='comment' />{{ 'Comments'|trans }}</h3>
@@ -154,7 +159,7 @@
                         {% endif %}
                         <span>{{ 'On %s %s wrote:'|trans|format(comment.datetime, comment.fullname)|raw }}</span>
                         <!-- .editable uses the id of the element to send to the controller -->
-                        <p {{ comment.userid == Entity.Users.userid ? "class='editable'" }} id='{{ comment.id }}' data-indicator='{{ 'Saving'|trans }}' data-submit='{{ 'Save'|trans }}' data-cancel='{{ 'Cancel'|trans }}'>{{ comment.comment }}</p>
+                        <p {{ comment.userid == Entity.Users.userid ? "class='editable'" }} id='{{ comment.id }}' data-indicator='{{ 'Saving'|trans }}' data-submit='{{ 'Save'|trans }}' data-cancel='{{ 'Cancel'|trans }}'>{{ comment.comment|raw }}</p>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -167,6 +172,9 @@
     </section>
 
 {% endif %}
+
+<!-- REVISIONS -->
+{{ Revisions.showCount|raw }}
 
 <div id='entityInfos'
     data-title='{{ cleanTitle }}'

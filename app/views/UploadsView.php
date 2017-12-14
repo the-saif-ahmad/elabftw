@@ -67,8 +67,8 @@ class UploadsView
             "' data-id='" . $this->Uploads->Entity->id . "'>";
         // show the delete button only in edit mode, not in view mode
         if ($mode === 'edit') {
-            $html .= "<a class='align_right' onClick=\"uploadsDestroy(" . $upload['id'] . "
-                , '" . $upload['type'] . "', " . $upload['item_id'] . ", '" . _('Delete this?') . "')\">";
+            $html .= "<a class='align_right uploadsDestroy' data-id='" . $upload['id'] . "' data-type='" . $upload['type'] . "'
+                data-itemid='" . $upload['item_id'] . "' data-msg='" . _('Delete this?') . "'>";
             $html .= "<img src='app/img/small-trash.png' title='delete' alt='delete' /></a>";
         } // end if it is in edit mode
 
@@ -97,29 +97,25 @@ class UploadsView
             }
             $html .= "><img class='thumb' src='" . $thumbpath . "' alt='thumbnail' /></a>";
 
-        // not an image
+            // not an image
         } elseif (in_array($ext, $commonExtensions)) {
             $html .= "<img class='thumb' src='app/img/thumb-" . $ext . ".png' alt='' />";
 
-        // special case for mol files, only in view mode
+            // special case for mol files, only in view mode
         } elseif ($ext === 'mol' && $this->Uploads->Entity->Users->userData['chem_editor'] && $mode === 'view') {
-            // we need to escape \n in the mol file or we get unterminated string literal error in JS
-            $mol = str_replace("\n", "\\n", file_get_contents($filepath));
-            $html .= "<div class='center'><script>
-                  showMol('" . $mol . "');
-                  </script></div>";
+            $html .= "<div class='center'><canvas class='molFile' id='molFile_" . $upload['id'] .
+                "' data-molpath='" . $filepath . "'></canvas></div>";
 
-        // if this is something 3Dmol.js can handle
+            // if this is something 3Dmol.js can handle
         } elseif (in_array($ext, $molExtensions)) {
-            // try to be clever and choose stick representation for
-            // all files that are not in pdb format
-            $style = 'stick';
+            // try to be clever and use cartoon representation for pdb files
             if ($ext === 'pdb') {
-                $style = 'cartoon:color=spectrum';
+                $isProtein = true;
+            } else {
+                $isProtein = false;
             }
-            $molviewer = new MolViewer($upload['id'], $filepath, false, $style);
+            $molviewer = new MolViewer($upload['id'], $filepath, $isProtein);
             $html .= $molviewer->getViewerDiv();
-
         } else {
             // uncommon extension without a nice image to display
             $html .= "<img class='thumb' src='app/img/thumb.png' alt='' />";
@@ -142,10 +138,17 @@ class UploadsView
             $html .= $comment;
         }
 
+        // INSERT IN TEXT
         if ($mode === 'edit' && preg_match('/(jpg|jpeg|png|gif|svg)$/i', $ext)) {
             $html .= "<div class='inserter clickable' data-link='" . $upload['long_name'] .
                 "'><img src='app/img/show-more.png' /> <p class='inline'>" . _('Insert in text at cursor position') . "</p></div>";
         }
+
+        // REPLACE
+        if ($mode === 'edit') {
+            $html .= "<div class='replacer clickable' data-itemid='" . $upload['item_id'] . "' data-id='" . $upload['id'] . "' data-type='" . $upload['type'] . "'><img src='app/img/replace.png' /> <p class='inline'>" . _('Upload a new version of this file') . "</p></div>";
+        }
+
         $html .= "</div></div></div>";
 
         return $html;

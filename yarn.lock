@@ -2,9 +2,9 @@
 # yarn lockfile v1
 
 
-"@fancyapps/fancybox@^3.1.25":
-  version "3.1.25"
-  resolved "https://registry.yarnpkg.com/@fancyapps/fancybox/-/fancybox-3.1.25.tgz#c418d783ae0252c0f748efb0e828e487dfc7de2d"
+"@fancyapps/fancybox@^3.2.5":
+  version "3.2.5"
+  resolved "https://registry.yarnpkg.com/@fancyapps/fancybox/-/fancybox-3.2.5.tgz#c866f399bf3d2ef61d4103dfe9f297e74d3c3ff3"
 
 abbrev@1:
   version "1.1.0"
@@ -242,9 +242,9 @@ fs.realpath@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/fs.realpath/-/fs.realpath-1.0.0.tgz#1504ad2523158caa40db4a2787cb01411994ea4f"
 
-fullcalendar@^3.6.1:
-  version "3.6.1"
-  resolved "https://registry.yarnpkg.com/fullcalendar/-/fullcalendar-3.6.1.tgz#0b9b62b1e697d52d39c1118af9e4e411e5045590"
+fullcalendar@^3.7.0:
+  version "3.7.0"
+  resolved "https://registry.yarnpkg.com/fullcalendar/-/fullcalendar-3.7.0.tgz#74309943790a0085647ef7671c81c852f68b4a28"
   dependencies:
     jquery "2 - 3"
     moment "^2.9.0"
@@ -886,9 +886,9 @@ tinymce-mention@^4.0.2:
   dependencies:
     jquery ">=1.8.3"
 
-tinymce@^4.7.1:
-  version "4.7.1"
-  resolved "https://registry.yarnpkg.com/tinymce/-/tinymce-4.7.1.tgz#88c869402b7c99fe6df2801bc732450fdad4f500"
+tinymce@^4.7.4:
+  version "4.7.4"
+  resolved "https://registry.yarnpkg.com/tinymce/-/tinymce-4.7.4.tgz#1d7ebb192aa1c238cb9fc8350376c2ea2efb8891"
 
 trim-newlines@^1.0.0:
   version "1.0.0"

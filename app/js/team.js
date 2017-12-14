@@ -6,14 +6,14 @@ $(document).ready(function() {
 				center: 'title',
 				right: 'agendaWeek'
 			},
+            // i18n
+            locale: $('#infos').data('lang'),
             defaultView: 'agendaWeek',
             // allow selection of range
 			selectable: true,
             // draw an event while selecting
 			selectHelper: true,
             editable: true,
-            // i18n
-            lang: $('#infos').data('lang'),
             // allow "more" link when too many events
 			eventLimit: true,
             // load the events as JSON
@@ -67,8 +67,10 @@ $(document).ready(function() {
                     start: calEvent.start.format(),
                     end: calEvent.end.format(),
                     id: calEvent.id
-                }).done(function() {
-                    notif('Saved', 'ok');
+                }).done(function(data) {
+                    if (data.res) {
+                        notif(data.msg, 'ok');
+                    }
                 });
             },
             // a resize means we change end date
@@ -84,6 +86,38 @@ $(document).ready(function() {
 
 		});
 });
+
+// change item link
+$(document).on('click', '#change-item', function() {
+    insertParamAndReload('item', '');
+});
+
+$(document).on('click', '.import-tpl', function() {
+    $.post('app/controllers/UcpController.php', {
+        import_tpl: true,
+        id: $(this).data('id')
+    }).done(function() {
+        notif('Saved', 'ok');
+    });
+});
+// SUB TABS
+var tab = 1;
+var initdiv = '#subtab_' + tab + 'div';
+var inittab = '#subtab_' + tab;
+// init
+$(".subdivhandle").hide();
+$(initdiv).show();
+$(inittab).addClass('selected');
+
+$(".subtabhandle" ).click(function(event) {
+    var tabhandle = '#' + event.target.id;
+    var divhandle = '#' + event.target.id + 'div';
+    $(".subdivhandle").hide();
+    $(divhandle).show();
+    $(".subtabhandle").removeClass('badgetabactive');
+    $(tabhandle).addClass('badgetabactive');
+});
+// END SUB TABS
 
 function schedulerCreate(start, end) {
     var title = prompt('Comment:');

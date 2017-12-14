@@ -21,7 +21,11 @@ require_once '../../app/init.inc.php';
 
 try {
 
-    $Entity = new Experiments($Users);
+    if ($App->Session->has('anon')) {
+        throw new Exception(Tools::error(true));
+    }
+
+    $Entity = new Experiments($App->Users);
     $Response = new JsonResponse();
 
     $res = false;
@@ -38,7 +42,7 @@ try {
 
     // UPDATE
     if ($Request->request->has('update')) {
-        if ($Entity->Comments->update($Request->request->get('commentsUpdate'), $Request->request->get('id'))) {
+        if ($Entity->Comments->update($Request->request->get('update'), $Request->request->get('id'))) {
             $res = true;
             $msg = _('Saved');
         }

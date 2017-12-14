@@ -36,7 +36,7 @@ class Update
      * AND REFLECT THE CHANGE IN tests/_data/phpunit.sql
      * /////////////////////////////////////////////////////
      */
-    const REQUIRED_SCHEMA = '33';
+    const REQUIRED_SCHEMA = '36';
 
     /**
      * Init Update with Config and Db
@@ -254,6 +254,22 @@ class Update
             // 20170921
             // I think now it's time to find a better way to clean cache on update…
             $this->updateSchema(33);
+        }
+
+        if ($current_schema < 34) {
+            // 20171106
+            // I think now it's time to find a better way to clean cache on update…
+            $this->updateSchema(34);
+        }
+        if ($current_schema < 35) {
+            // 20171201
+            $this->schema35();
+            $this->updateSchema(35);
+        }
+        if ($current_schema < 36) {
+            // 20171201
+            $this->schema36();
+            $this->updateSchema(36);
         }
         // place new schema functions above this comment
 
@@ -807,6 +823,47 @@ define('SECRET_KEY', '" . $new_key->saveToAsciiSafeString() . "');
             PRIMARY KEY (`id`));";
         if (!$this->Db->q($sql)) {
             throw new Exception('Cannot create experiments_tpl_tags table');
+        }
+    }
+
+    /**
+     * Add inc_files_pdf to users table
+     *
+     */
+    private function schema35()
+    {
+        $sql = "ALTER TABLE `users` ADD `inc_files_pdf` TINYINT(1) NOT NULL DEFAULT '1';";
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot add inc_files_pdf to Users table');
+        }
+    }
+
+    /**
+     * Add public_db to teams and anon_users to config
+     *
+     */
+    private function schema36()
+    {
+        $sql = "ALTER TABLE `teams` ADD `public_db` TINYINT(1) NOT NULL DEFAULT '0';";
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot add public_db to teams table');
+        }
+        $sql = "INSERT INTO `config` (`conf_name`, `conf_value`) VALUES
+            ('anon_users', '0')";
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Error adding config anon_users');
+        }
+        $sql = "ALTER TABLE `users` ADD `archived` TINYINT(1) NOT NULL DEFAULT '0';";
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Error adding config anon_users');
+        }
+        $sql = "ALTER TABLE `users` ADD `pdfa` TINYINT(1) NOT NULL DEFAULT '1';";
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot add pdfa to users table!');
+        }
+        $sql = "ALTER TABLE `users` ADD `pdf_format` VARCHAR(255) NOT NULL DEFAULT 'A4';";
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Cannot add pdf_format to users table!');
         }
     }
 }

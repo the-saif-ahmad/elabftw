@@ -11,6 +11,7 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Display profile of current user
@@ -21,18 +22,47 @@ $App->pageTitle = _('Profile');
 
 try {
     // get total number of experiments
-    $Entity = new Experiments($Users);
+    $Entity = new Experiments($App->Users);
     $Entity->setUseridFilter();
     $itemsArr = $Entity->read();
     $count = count($itemsArr);
 
-    $UserStats = new UserStats($Users, $count);
-    $TagCloud = new TagCloud($Users->userid);
+    // generate stats for the pie chart with experiments status
+    // see https://developers.google.com/chart/interactive/docs/reference?csw=1#datatable-class
+    $UserStats = new UserStats($App->Users, $count);
+    $stats = array();
+    // columns
+    $stats['cols'] = array(
+        array(
+        'type' => 'string',
+        'label' => 'Status'),
+        array(
+        'type' => 'number',
+        'label' => 'Experiments number')
+    );
+    // rows
+    foreach ($UserStats->percentArr as $status => $name) {
+        $stats['rows'][] = array('c' => array(array('v' => $status), array('v' => $name)));
+    }
+    // now convert to json for JS usage
+    $statsJson = json_encode($stats);
+
+    // colors of the status
+    $colors = array();
+    // we just need to add the '#' at the beginning
+    foreach ($UserStats->colorsArr as $color) {
+        $colors[] = '#' . $color;
+    }
+    $colorsJson = json_encode($colors);
+
+    $TagCloud = new TagCloud($App->Users->userid);
 
     $template = 'profile.html';
     $renderArr = array(
         'UserStats' => $UserStats,
         'TagCloud' => $TagCloud,
+        'colorsJson' => $colorsJson,
+        'statsJson' => $statsJson,
         'count' => $count
     );
 
@@ -40,6 +70,10 @@ try {
     $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
-}
 
-echo $App->render($template, $renderArr);
+} finally {
+    $Response = new Response();
+    $Response->prepare($Request);
+    $Response->setContent($App->render($template, $renderArr));
+    $Response->send();
+}

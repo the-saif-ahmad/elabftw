@@ -10,12 +10,12 @@
  */
 namespace Elabftw\Elabftw;
 
-use mPDF;
+use Mpdf\Mpdf;
 use Exception;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Create a pdf given an id and a type
+ * Create a pdf from an Entity
  */
 class MakePdf extends AbstractMake
 {
@@ -26,7 +26,7 @@ class MakePdf extends AbstractMake
     public $filePath;
 
     /**
-     * Everything is done in the constructor
+     * Constructor
      *
      * @param AbstractEntity $entity Experiments or Database
      */
@@ -48,6 +48,8 @@ class MakePdf extends AbstractMake
      */
     public function output($toFile = false, $timestamp = false)
     {
+        $format = $this->Entity->Users->userData['pdf_format'];
+
         // we use a custom tmp dir, not the same as Twig because its content gets deleted after pdf is generated
         $tmpDir = ELAB_ROOT . 'uploads/tmp/mpdf/';
         if (!is_dir($tmpDir)) {
@@ -55,22 +57,33 @@ class MakePdf extends AbstractMake
                 throw new Exception("Could not create the $tmpDir directory. Please check permissions on this folder.");
             }
         }
-        define("_MPDF_TEMP_PATH", $tmpDir);
-        define("_MPDF_TTFONTDATAPATH", $tmpDir);
 
         // create the pdf
-        $mpdf = new mPDF('utf-8', 'A4');
+        $mpdf = new Mpdf(array(
+            'format' => $format,
+            'tempDir' => $tmpDir,
+            'mode' => 'utf-8'
+        ));
+
         // make sure header and footer are not overlapping the body text
         $mpdf->setAutoTopMargin = 'stretch';
         $mpdf->setAutoBottomMargin = 'stretch';
-        // set meta data
+
+        // set metadata
         $mpdf->SetAuthor($this->Entity->entityData['fullname']);
         $mpdf->SetTitle($this->Entity->entityData['title']);
         $mpdf->SetSubject('eLabFTW pdf');
         $mpdf->SetKeywords(strtr($this->Entity->entityData['tags'], '|', ' '));
         $mpdf->SetCreator('www.elabftw.net');
+
+        // write content
         $mpdf->WriteHTML($this->getContent());
-        $mpdf->PDFA = true;
+
+        if ($this->Entity->Users->userData['pdfa']) {
+            // make sure we can read the pdf in a long time
+            // will embed the font and make the pdf bigger
+            $mpdf->PDFA = true;
+        }
 
         // output
         if ($toFile) {
@@ -78,25 +91,14 @@ class MakePdf extends AbstractMake
 
             // output in tmp folder if it's not a timestamp pdf
             if ($timestamp) {
-                $this->filePath = $this->getFilePath($this->fileName, false);
+                $this->filePath = $this->getUploadsPath() . $this->fileName;
             } else {
-                $this->filePath = $this->getFilePath($this->fileName, true);
+                $this->filePath = $this->getTmpPath() . $this->fileName;
             }
             $mpdf->Output($this->filePath, 'F');
         } else {
             $mpdf->Output($this->getCleanName(), 'I');
         }
-    }
-
-    /**
-     * Replace weird characters by underscores
-     *
-     * @return string The file name of the pdf
-     */
-    public function getCleanName()
-    {
-        return $this->Entity->entityData['date'] . "-" .
-            preg_replace('/[^A-Za-z0-9 ]/', '_', $this->Entity->entityData['title']) . '.pdf';
     }
 
     /**
@@ -107,7 +109,7 @@ class MakePdf extends AbstractMake
     private function addElabid()
     {
         if ($this->Entity instanceof Experiments) {
-            return "<p class='elabid'>elabid : " . $this->Entity->entityData['elabid'] . "</p>";
+            return "<p class='elabid'>Unique eLabID: " . $this->Entity->entityData['elabid'] . "</p>";
         }
         return "";
     }
@@ -153,7 +155,9 @@ class MakePdf extends AbstractMake
 
         // create Request object
         $Request = Request::createFromGlobals();
-        $url = 'https://' . $Request->getHttpHost() . '/database.php';
+        $url = Tools::getUrl($Request) . '/' . $this->Entity->page . '.php';
+        // not pretty but gets the job done
+        $url = str_replace('app/classes/', '', $url);
 
         foreach ($linksArr as $link) {
             $fullItemUrl = $url . "?mode=view&id=" . $link['link_id'];
@@ -216,6 +220,12 @@ class MakePdf extends AbstractMake
     private function addAttachedFiles()
     {
         $html = '';
+
+        // do nothing if we don't want the attached files
+        if (!$this->Entity->Users->userData['inc_files_pdf']) {
+            return $html;
+        }
+
         $uploadsArr = $this->Entity->Uploads->readAll();
         $fileNb = count($uploadsArr);
         if ($fileNb > 0) {
@@ -303,17 +313,21 @@ class MakePdf extends AbstractMake
         $date_str = date_format($date, 'Y-m-d');
 
         // add a CJK font for the body if we want CJK fonts
-        $cjkFlag = "";
+        $cjkStyle = "";
+        $cjkFont = "";
         if ($this->Entity->Users->userData['cjk_fonts']) {
-            $cjkFlag = " style='font-family:sun-extA;'";
+            $cjkFont = "font-family:sun-extA;";
+            $cjkStyle = " style='" . $cjkFont . "'";
         }
 
+        // we add a custom style for td for bug #350
         return '
 <html>
     <head>
         <style>' . $this->addCss() . '</style>
+        <style>td { ' . $cjkFont . ' }</style>
     </head>
-<body' . $cjkFlag . '>
+<body' . $cjkStyle . '>
 <htmlpageheader name="header">
     <div id="header">
         <h1>' . $this->Entity->entityData['title'] . '</h1>
@@ -354,5 +368,16 @@ class MakePdf extends AbstractMake
         $content .= $this->buildInfoBlock();
 
         return $content;
+    }
+
+    /**
+     * Replace weird characters by underscores
+     *
+     * @return string The file name of the pdf
+     */
+    public function getCleanName()
+    {
+        return $this->Entity->entityData['date'] . "-" .
+            preg_replace('/[^A-Za-z0-9 ]/', '_', $this->Entity->entityData['title']) . '.pdf';
     }
 }

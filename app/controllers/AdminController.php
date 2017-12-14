@@ -18,8 +18,9 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
  * Deal with requests sent from the admin page
  *
  */
+require_once '../../app/init.inc.php';
+
 try {
-    require_once '../../app/init.inc.php';
 
     if (!$Session->get('is_admin')) {
         throw new Exception('Non admin user tried to access admin panel.');
@@ -30,9 +31,9 @@ try {
     // UPDATE ORDERING
     if ($Request->request->has('updateOrdering')) {
         if ($Request->request->get('table') === 'status') {
-            $Entity = new Status($Users);
+            $Entity = new Status($App->Users);
         } elseif ($Request->request->get('table') === 'items_types') {
-            $Entity = new ItemsTypes($Users);
+            $Entity = new ItemsTypes($App->Users);
         }
 
         if ($Entity->updateOrdering($Request->request->all())) {
@@ -50,7 +51,7 @@ try {
 
     // UPDATE TEAM SETTINGS
     if ($Request->request->has('teamsUpdateFull')) {
-        $Teams = new Teams($Users);
+        $Teams = new Teams($App->Users);
         if ($Teams->update($Request->request->all())) {
             $Session->getFlashBag()->add('ok', _('Configuration updated successfully.'));
         } else {
@@ -61,7 +62,7 @@ try {
 
     // CLEAR STAMP PASS
     if ($Request->query->get('clearStamppass')) {
-        $Teams = new Teams($Users);
+        $Teams = new Teams($App->Users);
         if (!$Teams->destroyStamppass()) {
             throw new Exception('Error clearing the timestamp password');
         }
@@ -71,7 +72,7 @@ try {
 
     // UPDATE COMMON TEMPLATE
     if ($Request->request->has('commonTplUpdate')) {
-        $Templates = new Templates($Users);
+        $Templates = new Templates($App->Users);
         if ($Templates->updateCommon($Request->request->get('commonTplUpdate'))) {
             $Response->setData(array(
                 'res' => true,

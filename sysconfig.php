@@ -12,6 +12,7 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Administrate elabftw install
@@ -28,13 +29,13 @@ try {
     $Idps = new Idps();
     $idpsArr = $Idps->readAll();
     $logsArr = $App->Logs->readAll();
-    $TeamsView = new TeamsView(new Teams($Users));
+    $TeamsView = new TeamsView(new Teams($App->Users));
     $teamsArr = $TeamsView->Teams->readAll();
-    $usersArr = $Users->readAll();
-    $ReleaseCheck = new ReleaseCheck($Config);
+    $usersArr = $App->Users->readAll();
+    $ReleaseCheck = new ReleaseCheck($App->Config);
     $langsArr = Tools::getLangsArr();
 
-    switch ($Config->configArr['mail_method']) {
+    switch ($App->Config->configArr['mail_method']) {
         case 'sendmail':
             $disable_sendmail = false;
             $disable_smtp = true;
@@ -60,7 +61,6 @@ try {
 
     $template = 'sysconfig.html';
     $renderArr = array(
-        'Auth' => $Auth,
         'ReleaseCheck' => $ReleaseCheck,
         'TeamsView' => $TeamsView,
         'langsArr' => $langsArr,
@@ -79,6 +79,10 @@ try {
     $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
-}
 
-echo $App->render($template, $renderArr);
+} finally {
+    $Response = new Response();
+    $Response->prepare($Request);
+    $Response->setContent($App->render($template, $renderArr));
+    $Response->send();
+}

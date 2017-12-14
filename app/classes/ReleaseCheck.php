@@ -40,10 +40,9 @@ class ReleaseCheck
     /**
      * ////////////////////////////
      * UPDATE THIS AFTER RELEASING
-     * UPDATE IT ALSO IN package.json
      * ///////////////////////////
      */
-    const INSTALLED_VERSION = '1.7.6';
+    const INSTALLED_VERSION = '1.8.0';
 
     /**
      * Fetch the update info on object creation
@@ -73,12 +72,22 @@ class ReleaseCheck
                 'User-Agent' => 'Elabftw/' . self::INSTALLED_VERSION
             ],
             // add proxy if there is one
-            ['proxy' => $this->Config->configArr['proxy']],
+            'proxy' => $this->Config->configArr['proxy'],
             // add a timeout, because if you need proxy, but don't have it, it will mess up things
             // in seconds
-            ['timeout' => 5]
+            'timeout' => 5
 
         ]);
+    }
+
+    /**
+     * Check if the version string actually looks like a version
+     *
+     * @return int 1 if version match
+     */
+    private function validateVersion()
+    {
+        return preg_match('/[0-99]+\.[0-99]+\.[0-99]+.*/', $this->version);
     }
 
     /**
@@ -111,16 +120,6 @@ class ReleaseCheck
         }
         $this->success = true;
         return true;
-    }
-
-    /**
-     * Check if the version string actually looks like a version
-     *
-     * @return int 1 if version match
-     */
-    private function validateVersion()
-    {
-        return preg_match('/[0-99]+\.[0-99]+\.[0-99]+.*/', $this->version);
     }
 
     /**

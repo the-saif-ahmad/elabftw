@@ -11,6 +11,7 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Administration panel of a team
@@ -26,30 +27,28 @@ try {
 
     $FormKey = new FormKey($Session);
 
-    $ItemsTypes = new ItemsTypes($Users);
-    $Status = new Status($Users);
-    $TeamGroups = new TeamGroups($Users);
-    $Templates = new Templates($Users);
+    $ItemsTypes = new ItemsTypes($App->Users);
+    $Status = new Status($App->Users);
+    $TeamGroups = new TeamGroups($App->Users);
+    $Templates = new Templates($App->Users);
 
     $itemsTypesArr = $ItemsTypes->readAll();
     $statusArr = $Status->readAll();
     $teamGroupsArr = $TeamGroups->readAll();
     $commonTplBody = $Templates->readCommonBody();
     // only the unvalidated ones
-    $unvalidatedUsersArr = $Users->readAllFromTeam(0);
+    $unvalidatedUsersArr = $App->Users->readAllFromTeam(0);
     // all users
-    $usersArr = $Users->readAllFromTeam();
+    $usersArr = $App->Users->readAllFromTeam();
 
     $template = 'admin.html';
     $renderArr = array(
-        'Auth' => $Auth,
         'FormKey' => $FormKey,
         'fromSysconfig' => false,
         'itemsTypesArr' => $itemsTypesArr,
         'statusArr' => $statusArr,
         'teamGroupsArr' => $teamGroupsArr,
         'commonTplBody' => $commonTplBody,
-        'Users' => $Users,
         'unvalidatedUsersArr' => $unvalidatedUsersArr,
         'usersArr' => $usersArr
     );
@@ -57,6 +56,10 @@ try {
 } catch (Exception $e) {
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
-}
 
-echo $App->render($template, $renderArr);
+} finally {
+    $Response = new Response();
+    $Response->prepare($Request);
+    $Response->setContent($App->render($template, $renderArr));
+    $Response->send();
+}

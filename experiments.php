@@ -13,6 +13,7 @@ namespace Elabftw\Elabftw;
 
 use Exception;
 use InvalidArgumentException;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Entry point for all experiment stuff
@@ -22,9 +23,11 @@ require_once 'app/init.inc.php';
 $App->pageTitle = ngettext('Experiment', 'Experiments', 2);
 
 try {
-    $Entity = new Experiments($Users);
+    $Entity = new Experiments($App->Users);
     $EntityView = new ExperimentsView($Entity);
-    $Status = new Status($Entity->Users);
+
+    $Status = new Status($App->Users);
+    $categoryArr = $Status->readAll();
 
     // VIEW
     if ($Request->query->get('mode') === 'view') {
@@ -40,11 +43,15 @@ try {
         // UPLOADS
         $UploadsView = new UploadsView($Entity->Uploads);
 
+        // REVISIONS
+        $Revisions = new Revisions($Entity);
+
         $template = 'view.html';
 
         $renderArr = array(
             'Ev' => $EntityView,
             'Entity' => $Entity,
+            'Revisions' => $Revisions,
             'Uv' => $UploadsView,
             'linksArr' => $linksArr,
             'commentsArr' => $commentsArr,
@@ -81,16 +88,16 @@ try {
 
         $renderArr = array(
             'Entity' => $Entity,
-            'Uv' => $UploadsView,
-            'mode' => 'edit',
             'Revisions' => $Revisions,
-            'Categories' => $Status,
             'TeamGroups' => $TeamGroups,
-            'linksArr' => $linksArr,
-            'stepsArr' => $stepsArr,
+            'Uv' => $UploadsView,
+            'categoryArr' => $categoryArr,
             'cleanTitle' => Tools::getCleanTitle($Entity->entityData['title']),
+            'lang' => Tools::getCalendarLang($App->Users->userData['lang']),
+            'linksArr' => $linksArr,
             'maxUploadSize' => Tools::returnMaxUploadSize(),
-            'lang' => Tools::getCalendarLang($App->Users->userData['lang'])
+            'mode' => 'edit',
+            'stepsArr' => $stepsArr
         );
 
     // DEFAULT MODE IS SHOW
@@ -159,21 +166,44 @@ try {
             $Entity->sort = $sort;
         }
 
-        $Status = new Status($Entity->Users);
-        $categoryArr = $Status->readAll();
+        // PAGINATION
+        $limit = $App->Users->userData['limit_nb'];
+        if ($Request->query->has('limit') && Tools::checkId($Request->query->get('limit'))) {
+            $limit = $Request->query->get('limit');
+        }
+
+        $offset = 0;
+        if ($Request->query->has('offset') && Tools::checkId($Request->query->get('offset'))) {
+            $offset = $Request->query->get('offset');
+        }
+
+        $showAll = true;
+        if ($Request->query->get('limit') !== 'over9000') {
+            $Entity->setOffset($offset);
+            $Entity->setLimit($limit);
+            $showAll = false;
+        }
+        // END PAGINATION
+
+        $TeamGroups = new TeamGroups($Entity->Users);
+        $visibilityArr = $TeamGroups->getVisibilityList();
 
         $Templates = new Templates($Entity->Users);
         $templatesArr = $Templates->readFromUserid();
 
         // READ ALL ITEMS
+        if ($App->Session->get('anon')) {
+            $Entity->visibilityFilter =  "AND experiments.visibility = 'public'";
+            $itemsArr = $Entity->read();
 
         // related filter
-        if (Tools::checkId($Request->query->get('related'))) {
+        } elseif (Tools::checkId($Request->query->get('related'))) {
             $searchType = 'related';
             $itemsArr = $Entity->readRelated($Request->query->get('related'));
+
         } else {
             // filter by user only if we are not making a search
-            if (!$Users->userData['show_team'] && ($searchType === '' || $searchType === 'filter')) {
+            if (!$Entity->Users->userData['show_team'] && ($searchType === '' || $searchType === 'filter')) {
                 $Entity->setUseridFilter();
             }
 
@@ -184,25 +214,30 @@ try {
 
         $renderArr = array(
             'Entity' => $Entity,
-            'itemsArr' => $itemsArr,
-            'searchType' => $searchType,
             'categoryArr' => $categoryArr,
-            'templatesArr' => $templatesArr,
+            'itemsArr' => $itemsArr,
+            'offset' => $offset,
+            'query' => $query,
+            'searchType' => $searchType,
+            'showAll' => $showAll,
             'tag' => $tag,
-            'query' => $query
+            'templatesArr' => $templatesArr,
+            'visibilityArr' => $visibilityArr
         );
     }
 } catch (InvalidArgumentException $e) {
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
 } catch (Exception $e) {
-    $debug = false;
     $message = $e->getMessage();
-    if ($debug) {
-        $message .= ' ' . $e->getFile() . '(' . $e->getLine() . ')';
+    if ($App->Config->configArr['debug']) {
+        $message .= ' in ' . $e->getFile() . ' (line ' . $e->getLine() . ')';
     }
     $template = 'error.html';
     $renderArr = array('error' => $message);
+} finally {
+    $Response = new Response();
+    $Response->prepare($Request);
+    $Response->setContent($App->render($template, $renderArr));
+    $Response->send();
 }
-
-echo $App->render($template, $renderArr);

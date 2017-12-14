@@ -10,7 +10,7 @@ module.exports = function(grunt) {
     pkg: grunt.file.readJSON('package.json'),
     uglify: {
       options: {
-          banner: '/*! <%= pkg.name %> <%= pkg.version %> <%= pkg.homepage %> */\n',
+          banner: '/*! <%= pkg.name %> <%= pkg.homepage %> */\n',
         mangle: false
       },
       dist: {
@@ -50,8 +50,8 @@ module.exports = function(grunt) {
           'app/js/file-saver.min.js': 'node_modules/file-saver/FileSaver.js',
           'app/js/admin.min.js': 'app/js/admin.js',
           'app/js/view.min.js': [
-              'app/js/view.js',
-              'node_modules/@fancyapps/fancybox/dist/jquery.fancybox.js'],
+              'node_modules/@fancyapps/fancybox/dist/jquery.fancybox.js',
+              'app/js/view.js'],
           'app/js/tabs.min.js': 'app/js/tabs.js',
           'app/js/sysconfig.min.js': 'app/js/sysconfig.js',
           'app/js/footer.min.js': 'app/js/footer.js',
@@ -66,6 +66,8 @@ module.exports = function(grunt) {
           'app/js/edit.min.js': 'app/js/edit.js',
           'app/js/search.min.js': 'app/js/search.js',
           'app/js/ucp.min.js': 'app/js/ucp.js',
+          'app/js/profile.min.js': 'app/js/profile.js',
+          'app/js/uploads.min.js': 'app/js/uploads.js',
           'app/js/doodle.min.js': 'app/js/doodle.js',
           'app/js/bootstrap-markdown.min.js': [
               'node_modules/markdown/lib/markdown.js',

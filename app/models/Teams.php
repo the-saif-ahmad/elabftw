@@ -78,12 +78,11 @@ class Teams implements CrudInterface
         $newId = $this->Db->lastInsertId();
 
         // create default status
-        $Users = new Users();
-        $Status = new Status($Users);
+        $Status = new Status($this->Users);
         $result2 = $Status->createDefault($newId);
 
         // create default item type
-        $ItemsTypes = new ItemsTypes($Users);
+        $ItemsTypes = new ItemsTypes($this->Users);
         $result3 = $ItemsTypes->create(
             'Edit me',
             '32a100',
@@ -93,7 +92,7 @@ class Teams implements CrudInterface
         );
 
         // create default experiment template
-        $Templates = new Templates($Users);
+        $Templates = new Templates($this->Users);
         $result4 = $Templates->createDefault($newId);
 
         if ($result1 && $result2 && $result3 && $result4) {
@@ -101,20 +100,6 @@ class Teams implements CrudInterface
         }
         return false;
 
-    }
-
-    /**
-     * Get all the teams
-     *
-     * @return array
-     */
-    public function readAll()
-    {
-        $sql = "SELECT * FROM teams ORDER BY team_name ASC";
-        $req = $this->Db->prepare($sql);
-        $req->execute();
-
-        return $req->fetchAll();
     }
 
     /**
@@ -134,6 +119,20 @@ class Teams implements CrudInterface
             return $teamConfig;
         }
         return $teamConfig[$column];
+    }
+
+    /**
+     * Get all the teams
+     *
+     * @return array
+     */
+    public function readAll()
+    {
+        $sql = "SELECT * FROM teams ORDER BY team_name ASC";
+        $req = $this->Db->prepare($sql);
+        $req->execute();
+
+        return $req->fetchAll();
     }
 
     /**
@@ -163,6 +162,11 @@ class Teams implements CrudInterface
             $deletableXp = 1;
         }
 
+        $publicDb = 0;
+        if ($post['public_db'] == 1) {
+            $publicDb = 1;
+        }
+
         $linkName = 'Documentation';
         if (isset($post['link_name'])) {
             $linkName = filter_var($post['link_name'], FILTER_SANITIZE_STRING);
@@ -175,6 +179,7 @@ class Teams implements CrudInterface
 
         $sql = "UPDATE teams SET
             deletable_xp = :deletable_xp,
+            public_db = :public_db,
             link_name = :link_name,
             link_href = :link_href,
             stamplogin = :stamplogin,
@@ -183,13 +188,14 @@ class Teams implements CrudInterface
             stampcert = :stampcert
             WHERE team_id = :team_id";
         $req = $this->Db->prepare($sql);
-        $req->bindParam(':stampprovider', $post['stampprovider']);
-        $req->bindParam(':stampcert', $post['stampcert']);
-        $req->bindParam(':stamplogin', $post['stamplogin']);
-        $req->bindParam(':stamppass', $stamppass);
         $req->bindParam(':deletable_xp', $deletableXp);
+        $req->bindParam(':public_db', $publicDb);
         $req->bindParam(':link_name', $linkName);
         $req->bindParam(':link_href', $linkHref);
+        $req->bindParam(':stamplogin', $post['stamplogin']);
+        $req->bindParam(':stamppass', $stamppass);
+        $req->bindParam(':stampprovider', $post['stampprovider']);
+        $req->bindParam(':stampcert', $post['stampcert']);
         $req->bindParam(':team_id', $this->Users->userData['team']);
 
         return $req->execute();

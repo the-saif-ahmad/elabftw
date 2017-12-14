@@ -11,6 +11,8 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Login page
@@ -21,19 +23,19 @@ $App->pageTitle = _('Login');
 
 try {
     // Check if already logged in
-    if ($Session->has('auth')) {
-        header('Location: experiments.php');
-        throw new Exception('Already logged in');
+    if ($Session->has('auth') || $Session->has('anon')) {
+        $Response = new RedirectResponse("experiments.php");
+        $Response->send();
+        exit;
     }
 
-    $Idps = new Idps();
     $FormKey = new FormKey($Session);
     $BannedUsers = new BannedUsers($App->Config);
 
     // if we are not in https, die saying we work only in https
     if (!$Request->isSecure() && !$Request->server->has('HTTP_X_FORWARDED_PROTO')) {
         // get the url to display a link to click (without the port)
-        $url = 'https://' . $Request->getHttpHost();
+        $url = Tools::getUrl($Request);
         $message = "eLabFTW works only in HTTPS. Please enable HTTPS on your server. Or click this link : <a href='" .
             $url . "'>$url</a>";
         throw new Exception($message);
@@ -61,7 +63,11 @@ try {
         $showLocal = false;
     }
 
+    $Idps = new Idps();
     $idpsArr = $Idps->readAll();
+
+    $Teams = new Teams($App->Users);
+    $teamsArr = $Teams->readAll();
 
     $template = 'login.html';
     $renderArr = array(
@@ -69,12 +75,17 @@ try {
         'FormKey' => $FormKey,
         'Session' => $Session,
         'idpsArr' => $idpsArr,
+        'teamsArr' => $teamsArr,
         'showLocal' => $showLocal
     );
+
 
 } catch (Exception $e) {
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
+} finally {
+    $Response = new Response();
+    $Response->prepare($Request);
+    $Response->setContent($App->render($template, $renderArr));
+    $Response->send();
 }
-
-echo $App->render($template, $renderArr);

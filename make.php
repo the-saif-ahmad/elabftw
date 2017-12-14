@@ -11,6 +11,7 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Create a csv, zip or pdf file
@@ -22,9 +23,9 @@ $App->pageTitle = _('Export');
 
 try {
     if ($Request->query->get('type') === 'experiments') {
-        $Entity = new Experiments($Users);
+        $Entity = new Experiments($App->Users);
     } else {
-        $Entity = new Database($Users);
+        $Entity = new Database($App->Users);
     }
 
     switch ($Request->query->get('what')) {
@@ -58,11 +59,17 @@ try {
             'Make' => $Make,
             'filesize' => $filesize
         );
-        echo $App->render($template, $renderArr);
+        $Response = new Response();
+        $Response->prepare($Request);
+        $Response->setContent($App->render($template, $renderArr));
+        $Response->send();
     }
 
 } catch (Exception $e) {
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
-    echo $App->render($template, $renderArr);
+    $Response = new Response();
+    $Response->prepare($Request);
+    $Response->setContent($App->render($template, $renderArr));
+    $Response->send();
 }

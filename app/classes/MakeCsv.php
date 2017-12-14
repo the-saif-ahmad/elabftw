@@ -38,7 +38,7 @@ class MakeCsv extends AbstractMake
         parent::__construct($entity);
 
         $this->fileName = $this->getUniqueString();
-        $this->filePath = $this->getFilePath($this->fileName, true);
+        $this->filePath = $this->getTmpPath() . $this->fileName;
 
         $this->idList = $idList;
 
@@ -49,15 +49,6 @@ class MakeCsv extends AbstractMake
         $this->loopIdArr();
     }
 
-    /**
-     * Return a nice name for the file
-     *
-     * @return string
-     */
-    public function getCleanName()
-    {
-        return 'export.elabftw.csv';
-    }
     /**
      * Here we populate the first row: it will be the column names
      *
@@ -121,5 +112,15 @@ class MakeCsv extends AbstractMake
                 fputcsv($fp, $fields);
         }
         fclose($fp);
+    }
+
+    /**
+     * Return a nice name for the file
+     *
+     * @return string
+     */
+    public function getCleanName()
+    {
+        return 'export.elabftw.csv';
     }
 }

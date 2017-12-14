@@ -77,22 +77,6 @@ function isInt(n) {
     return n % 1 === 0;
 }
 
-
-// display mol files
-function showMol(molFileContent) {
-    // the first parameter is a random id
-    // otherwise several .mol files will clash
-    var viewer = new ChemDoodle.ViewerCanvas(Math.random(), 100, 100);
-    viewer.specs.bonds_width_2D = 0.6;
-    viewer.specs.bonds_saturationWidth_2D = 0.18;
-    viewer.specs.bonds_hashSpacing_2D = 2.5;
-    viewer.specs.atoms_font_size_2D = 10;
-    viewer.specs.atoms_font_families_2D = ['Helvetica', 'Arial', 'sans-serif'];
-    viewer.specs.atoms_displayTerminalCarbonLabels_2D = true;
-    var mol = ChemDoodle.readMOL(molFileContent);
-    viewer.loadMolecule(mol);
-}
-
 // ENTITY
 function toggleLock(type, id) {
     $.post("app/controllers/EntityController.php", {
@@ -163,29 +147,6 @@ function makeEditableFileComment(type, itemId) {
     });
 }
 
-// UPLOADS DESTROY
-function uploadsDestroy(id, type, itemId, confirmText) {
-    var youSure = confirm(confirmText);
-    if (youSure === true) {
-        $.post('app/controllers/EntityController.php', {
-            uploadsDestroy: true,
-            upload_id: id,
-            id: itemId,
-            type: type
-        }).done(function(data) {
-            if (data.res) {
-                notif(data.msg, 'ok');
-                if (type === 'items') {
-                    type = 'database';
-                }
-                $("#filesdiv").load(type + ".php?mode=edit&id=" + itemId + " #filesdiv");
-            } else {
-                notif(data.msg, 'ko');
-            }
-        });
-    }
-}
-
 // SEARCH PAGE
 function insertParamAndReload(key, value) {
     key = escape(key); value = escape(value);
@@ -240,22 +201,4 @@ function getQueryParams(qs) {
     }
 
     return params;
-}
-
-// decode asn1token
-function decodeAsn1(path, expId) {
-    $.post('app/controllers/ExperimentsController.php', {
-        asn1: path,
-        id: expId
-    }).done(function(data) {
-        $('#decodedDiv').html(data.msg);
-    });
-}
-
-function generateApiKey() {
-    $.post('app/controllers/UsersController.php', {
-        generateApiKey: true
-    }).done(function() {
-        $("#api_div").load("profile.php #api_div");
-    });
 }

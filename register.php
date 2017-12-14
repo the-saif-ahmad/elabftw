@@ -11,6 +11,7 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Create an account
@@ -25,7 +26,7 @@ try {
     die($message);
     // END DEMO BLOCK
     // Check if we're logged in
-    if ($Session->has('auth')) {
+    if ($Session->has('auth') || $Session->has('anon')) {
         throw new Exception(sprintf(
             _('Please %slogout%s before you register another account.'),
             "<a style='alert-link' href='app/logout.php'>",
@@ -38,7 +39,7 @@ try {
         throw new Exception(_('No local account creation is allowed!'));
     }
 
-    $Teams = new Teams($Users);
+    $Teams = new Teams($App->Users);
     $teamsArr = $Teams->readAll();
 
     $template = 'register.html';
@@ -47,6 +48,10 @@ try {
 } catch (Exception $e) {
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
-}
 
-echo $App->render($template, $renderArr);
+} finally {
+    $Response = new Response();
+    $Response->prepare($Request);
+    $Response->setContent($App->render($template, $renderArr));
+    $Response->send();
+}

@@ -16,13 +16,14 @@
             {% if Entity.entityData.tags|length > 0 %}
                 {% set tagsIdArr = Entity.entityData.tags_id|split(',') %}
                 {% set tagsValueArr = Entity.entityData.tags|split('|') %}
-                {% for key, tag in tagsValueArr %}
-                    {# the key allows to get the id stored in tagsIdArr #}
+                {% set inc = 0 %}
+                {% for tag in tagsValueArr %}
                     <span class='tag'>
-                        <a class='tagDestroy' data-type='{{ Entity.type }}' data-id='{{ Entity.id }}' data-tagid='{{ tagsIdArr[key] }}' data-confirm="{{ 'Delete this?'|trans }}">
+                        <a class='tagDestroy' data-type='{{ Entity.type }}' data-id='{{ Entity.id }}' data-tagid='{{ tagsIdArr[inc] }}' data-confirm="{{ 'Delete this?'|trans }}">
                             {{ tag|raw }}
                         </a>
                     </span>
+                    {% set inc = inc + 1 %}
                 {% endfor %}
             {% endif %}
         </span>
@@ -71,7 +72,7 @@
                     {% endif %}
                     </label>
                     <select id='category_select'>
-                        {% for category in Categories.readAll %}
+                        {% for category in categoryArr %}
                             <option value='{{ category.category_id }}'
                             {{ Entity.entityData.category_id == category.category_id ? ' selected' }}>{{ category.category }}</option>
                         {% endfor %}
@@ -164,42 +165,6 @@
     <form action='app/controllers/EntityController.php' class='dropzone' id='elabftw-dropzone'></form>
 </section>
 
-<script>
-// config for dropzone, id is camelCased.
-Dropzone.options.elabftwDropzone = {
-    // i18n message to user
-    dictDefaultMessage: '{{ 'Drop files here to upload'|trans }}',
-    maxFilesize: '{{ maxUploadSize }}', // MB
-    init: function() {
-
-        // add additionnal parameters (id and type)
-        this.on('sending', function(file, xhr, formData) {
-            formData.append('upload', true);
-            formData.append('id', '{{ Uv.Uploads.Entity.id }}');
-            formData.append('type', '{{ Uv.Uploads.Entity.type }}');
-        });
-
-        // once it is done
-        this.on('complete', function(answer) {
-            // check the answer we get back from app/controllers/EntityController.php
-            var json = JSON.parse(answer.xhr.responseText);
-            if (json.res) {
-                notif(json.msg, 'ok');
-            } else {
-                notif(json.msg, 'ko');
-            }
-            // reload the #filesdiv once the file is uploaded
-            if (this.getUploadingFiles().length === 0 && this.getQueuedFiles().length === 0) {
-                $('#filesdiv').load('?mode=edit&id={{ Uv.Uploads.Entity.id }} #filesdiv', function() {
-                    // make the comment zone editable (fix issue #54)
-                    makeEditableFileComment('{{ Uv.Uploads.Entity.type }}', {{ Uv.Uploads.Entity.id }});
-                });
-            }
-        });
-    }
-}
-</script>
-
 {{ include('uploads.html') }}
 
 <!-- DOODLE -->
@@ -231,6 +196,8 @@ Dropzone.options.elabftwDropzone = {
     <script src='app/js/closeWarning.js'></script>
 {% endif %}
 <div id='entityInfos'
+    data-upmsg='{{ 'Drop files here to upload'|trans }}'
+    data-maxsize='{{ maxUploadSize }}'
     data-type='{{ Entity.type }}'
     data-id='{{ Entity.id }}'
     data-title='{{ cleanTitle }}'

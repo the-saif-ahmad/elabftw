@@ -22,7 +22,11 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 try {
     require_once '../../app/init.inc.php';
 
-    $Entity = new Experiments($Users);
+    if ($App->Session->has('anon')) {
+        throw new Exception(Tools::error(true));
+    }
+
+    $Entity = new Experiments($App->Users);
     if ($Request->request->has('id')) {
         $Entity->setId($Request->request->get('id'));
     }
@@ -161,7 +165,7 @@ try {
             $Response = new JsonResponse();
             $Entity->canOrExplode('write');
             if ($Entity->isTimestampable()) {
-                $TrustedTimestamps = new TrustedTimestamps(new Config(), new Teams($Users), $Entity);
+                $TrustedTimestamps = new TrustedTimestamps(new Config(), new Teams($App->Users), $Entity);
                 if ($TrustedTimestamps->timeStamp()) {
                     $Response->setData(array(
                         'res' => true
@@ -187,7 +191,7 @@ try {
         $Response = new JsonResponse();
         $Entity->canOrExplode('write');
 
-        $Teams = new Teams($Users);
+        $Teams = new Teams($App->Users);
 
         if (($Teams->read('deletable_xp') == '0') && !$Session->get('is_admin')) {
             $Response->setData(array(
@@ -212,7 +216,7 @@ try {
     // DECODE ASN1 TOKEN
     if ($Request->request->has('asn1') && is_readable(ELAB_ROOT . "uploads/" . $Request->request->get('asn1'))) {
         $Response = new JsonResponse();
-        $TrustedTimestamps = new TrustedTimestamps(new Config(), new Teams($Users), $Entity);
+        $TrustedTimestamps = new TrustedTimestamps(new Config(), new Teams($App->Users), $Entity);
 
         $Response->setData(array(
             'res' => true,

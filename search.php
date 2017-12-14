@@ -18,19 +18,19 @@ namespace Elabftw\Elabftw;
 require_once 'app/init.inc.php';
 $App->pageTitle = _('Search');
 
-$Experiments = new Experiments($Users);
-$Database = new Database($Users);
+$Experiments = new Experiments($App->Users);
+$Database = new Database($App->Users);
 
-$ItemsTypes = new ItemsTypes($Users);
+$ItemsTypes = new ItemsTypes($App->Users);
 $categoryArr = $ItemsTypes->readAll();
 
-$Status = new Status($Users);
+$Status = new Status($App->Users);
 $statusArr = $Status->readAll();
 
-$TeamGroups = new TeamGroups($Users);
+$TeamGroups = new TeamGroups($App->Users);
 $teamGroupsArr = $TeamGroups->readAll();
 
-$usersArr = $Users->readAllFromTeam();
+$usersArr = $App->Users->readAllFromTeam();
 
 $title = '';
 $titleWithSpace = false;
@@ -100,7 +100,6 @@ if (isset($_GET['to']) && !empty($_GET['to'])) {
 }
 
 // RENDER THE FIRST PART OF THE PAGE (search form)
-$template = 'search.html';
 $renderArr = array(
     'Request' => $Request,
     'Experiments' => $Experiments,
@@ -114,7 +113,7 @@ $renderArr = array(
     'andor' => $andor,
     'tagsArr' => $tagsArr
 );
-echo $App->render($template, $renderArr);
+echo $App->render('search.html', $renderArr);
 
 /**
  * Here the search begins
@@ -224,7 +223,7 @@ if (isset($_GET)) {
     if (isset($_GET['type'])) {
         if ($_GET['type'] === 'experiments') {
             // EXPERIMENTS SEARCH
-            $Entity = new Experiments($Users);
+            $Entity = new Experiments($App->Users);
 
             // USERID FILTER
             if (isset($_GET['owner'])) {
@@ -232,7 +231,7 @@ if (isset($_GET)) {
                     $owner = $_GET['owner'];
                     $sqlUserid = " AND experiments.userid = " . $owner;
                 } elseif (empty($_GET['owner'])) {
-                    $owner = $Users->userid;
+                    $owner = $App->Users->userid;
                     $sqlUserid = " AND experiments.userid = " . $owner;
                 }
                 if ($_GET['owner'] === '0') {
@@ -247,7 +246,7 @@ if (isset($_GET)) {
 
         } else {
             // DATABASE SEARCH
-            $Entity = new Database($Users);
+            $Entity = new Database($App->Users);
 
             // RATING
             $Entity->ratingFilter = $sqlRating;

@@ -86,6 +86,9 @@ abstract class AbstractEntity
     /** @var string $limit limit for sql */
     public $limit = '';
 
+    /** @var string $offset offset for sql */
+    public $offset = '';
+
     /** @var array $entityData what you get after you ->read() */
     public $entityData;
 
@@ -176,7 +179,7 @@ abstract class AbstractEntity
             AS uploads
             ON (uploads.up_item_id = " . $this->type . ".id AND uploads.type = '" . $this->type . "')";
 
-        $tagsSelect = ", GROUP_CONCAT(DISTINCT tagt.tag SEPARATOR '|') as tags, GROUP_CONCAT(DISTINCT tagt.id) as tags_id";
+        $tagsSelect = ", GROUP_CONCAT(DISTINCT tagt.tag ORDER BY tagt.id SEPARATOR '|') as tags, GROUP_CONCAT(DISTINCT tagt.id) as tags_id";
 
         if ($this instanceof Experiments) {
             $select = "SELECT DISTINCT " . $this->type . ".*,
@@ -246,7 +249,7 @@ abstract class AbstractEntity
             $this->tagFilter . ' ' .
             $this->queryFilter . ' ' .
             $this->visibilityFilter . ' ' .
-            " GROUP BY id ORDER BY " . $this->order . " " . $this->sort . " " . $this->limit;
+            " GROUP BY id ORDER BY " . $this->order . " " . $this->sort . " " . $this->limit . " " . $this->offset;
 
         $req = $this->Db->prepare($sql);
         $req->bindParam(':team', $this->Users->userData['team']);
@@ -262,7 +265,6 @@ abstract class AbstractEntity
                 $finalArr[] = $item;
             }
         }
-
         // reduce the dimension of the array if we have only one item (idFilter set)
         if (count($finalArr) === 1 && !empty($this->idFilter)) {
             $item = $finalArr[0];
@@ -326,12 +328,23 @@ abstract class AbstractEntity
     /**
      * Set a limit for sql read
      *
-     * @param int $num
+     * @param int $num number of items to ignore
      * @return null
      */
     public function setLimit($num)
     {
         $this->limit = 'LIMIT ' . (int) $num;
+    }
+
+    /**
+     * Add an offset to the displayed results
+     *
+     * @param int $num number of items to ignore
+     * @return null
+     */
+    public function setOffset($num)
+    {
+        $this->offset = 'OFFSET ' . (int) $num;
     }
 
     /**
@@ -378,6 +391,9 @@ abstract class AbstractEntity
     {
         if (!isset($this->entityData) && !isset($item)) {
             $this->populate();
+            if (empty($this->entityData)) {
+                return array('read' => false, 'write' => false);
+            }
         }
         // don't try to read() again if we have the item (for show where there are several items to check)
         if (!isset($item)) {
@@ -402,19 +418,21 @@ abstract class AbstractEntity
                 // if we don't own the experiment (and we are not admin), we need to check the visibility
                 } else {
 
-                    $validArr = array(
-                        'public',
-                        'organization'
-                    );
+                    // if the vis. setting is public, we can see it for sure
+                    if ($item['visibility'] === 'public') {
+                        return array('read' => true, 'write' => false);
+                    }
 
-                    // if the vis. setting is public or organization, we can see it for sure
-                    if (in_array($item['visibility'], $validArr)) {
+                    // if it's organization, we need to be logged in
+                    if (($item['visibility'] === 'organization') && $this->Users->userid) {
                         return array('read' => true, 'write' => false);
                     }
 
                     // if the vis. setting is team, check we are in the same team than the $item
+                    // we also check for anon because anon will have the same team as real team member
                     if (($item['visibility'] === 'team') &&
-                        ($item['team'] == $this->Users->userData['team'])) {
+                        ($item['team'] == $this->Users->userData['team']) &&
+                        (!$this->Users->userData['anon'])) {
                             return array('read' => true, 'write' => false);
                     }
 
@@ -436,7 +454,11 @@ abstract class AbstractEntity
         } elseif ($this instanceof Database) {
             // for DB items, we only need to be in the same team
             if ($item['team'] === $this->Users->userData['team']) {
-                return array('read' => true, 'write' => true);
+                $ret = array('read' => true, 'write' => true);
+                if (isset($this->Users->userData['anon'])) {
+                    $ret['write'] = false;
+                }
+                return $ret;
             }
         }
 

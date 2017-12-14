@@ -54,20 +54,23 @@ abstract class AbstractMake
     }
 
     /**
-     * Attach the absolute path to a filename
+     * Get the uploads folder absolute path
      *
-     * @param string $fileName
-     * @param bool $tmp set to true if you want a temporary path (in uploads/tmp)
-     * @return string Absolute path
+     * @return string absolute path
      */
-    protected function getFilePath($fileName, $tmp = false)
+    protected function getUploadsPath()
     {
-        $tempPath = '';
+        return ELAB_ROOT . 'uploads/';
+    }
 
-        if ($tmp) {
-            $tempPath = 'tmp/';
-        }
-        return ELAB_ROOT . 'uploads/' . $tempPath . $fileName;
+    /**
+     * Get the temporary files folder absolute path
+     *
+     * @return string absolute path
+     */
+    protected function getTmpPath()
+    {
+        return ELAB_ROOT . 'uploads/tmp/';
     }
 
     /**
@@ -78,7 +81,7 @@ abstract class AbstractMake
     protected function getUrl()
     {
         $Request = Request::createFromGlobals();
-        $url = 'https://' . $Request->getHttpHost() . '/' . $this->Entity->page . '.php';
+        $url = Tools::getUrl($Request) . '/' . $this->Entity->page . '.php';
 
         return $url . "?mode=view&id=" . $this->Entity->id;
     }

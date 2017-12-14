@@ -93,7 +93,7 @@ INSERT INTO `config` (`conf_name`, `conf_value`) VALUES
 ('mail_from', 'phpunit@mailgun.org'),
 ('mail_method', 'smtp'),
 ('proxy', ''),
-('schema', '33'),
+('schema', '35'),
 ('sendmail_path', '/usr/sbin/sendmail'),
 ('smtp_address', 'smtp.mailgun.org'),
 ('smtp_encryption', 'tls'),
@@ -122,6 +122,7 @@ INSERT INTO `config` (`conf_name`, `conf_value`) VALUES
 ('saml_firstname', NULL),
 ('saml_lastname', NULL),
 ('local_login', '1'),
+('anon_users', '0'),
 ('local_register', '1');
 
 -- --------------------------------------------------------
@@ -418,6 +419,7 @@ CREATE TABLE `teams` (
   `team_id` int(10) UNSIGNED NOT NULL,
   `team_name` text NOT NULL,
   `deletable_xp` tinyint(1) NOT NULL DEFAULT '1',
+  `public_db` tinyint(1) NOT NULL DEFAULT '0',
   `link_name` text NOT NULL,
   `link_href` text NOT NULL,
   `datetime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -516,12 +518,16 @@ CREATE TABLE `users` (
   `close_warning` tinyint(1) UNSIGNED NOT NULL DEFAULT '0',
   `chem_editor` tinyint(1) UNSIGNED NOT NULL DEFAULT '0',
   `validated` tinyint(1) NOT NULL DEFAULT '0',
+  `archived` tinyint(1) NOT NULL DEFAULT '0',
   `lang` varchar(5) NOT NULL DEFAULT 'en_GB',
   `api_key` varchar(255) NULL DEFAULT NULL,
   `default_vis` varchar(255) NULL DEFAULT NULL,
   `single_column_layout` tinyint(1) NOT NULL DEFAULT 0,
   `cjk_fonts` tinyint(1) NOT NULL DEFAULT 0,
-  `use_markdown` tinyint(1) NOT NULL DEFAULT 0
+  `pdfa` tinyint(1) NOT NULL DEFAULT 1,
+  `pdf_format` varchar(255) NOT NULL DEFAULT 'A4',
+  `use_markdown` tinyint(1) NOT NULL DEFAULT 0,
+  `inc_files_pdf` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --

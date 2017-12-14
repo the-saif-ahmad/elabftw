@@ -26,7 +26,7 @@ use Symfony\Component\HttpFoundation\Request;
 class Email
 {
     /** @var Config $Config instance of Config */
-    public $Config;
+    private $Config;
 
     /**
      * Constructor
@@ -37,6 +37,36 @@ class Email
     {
         $this->Config = $config;
     }
+
+    /**
+     * Fetch the email(s) of the admin(s) for a team
+     *
+     * @param int $team
+     * @return array
+     */
+    private function getAdminEmail($team)
+    {
+        // array for storing email adresses of admin(s)
+        $arr = array();
+        $Db = Db::getConnection();
+
+        $sql = "SELECT email FROM users WHERE (`usergroup` = 1 OR `usergroup` = 2) AND `team` = :team";
+        $req = $Db->prepare($sql);
+        $req->bindParam(':team', $team);
+        $req->execute();
+
+        while ($email = $req->fetchColumn()) {
+            $arr[] = $email;
+        }
+
+        // if we have only one admin, we need to have an associative array
+        if (count($arr) === 1) {
+            return array($arr[0] => 'Admin eLabFTW');
+        }
+
+        return $arr;
+    }
+
     /**
      * Return Swift_Mailer instance and choose between sendmail and smtp
      *
@@ -160,7 +190,7 @@ class Email
         }
         // get url
         $Request = Request::createFromGlobals();
-        $url = 'https://' . $Request->getHttpHost() . '/admin.php';
+        $url = 'https://' . $Request->getHost() . ':' . $Request->getPort() . $Request->getBaseUrl() . '/admin.php';
 
         // Create the message
         $footer = "\n\n~~~\nSent from eLabFTW https://www.elabftw.net\n";
@@ -186,35 +216,6 @@ class Email
     }
 
     /**
-     * Fetch the email(s) of the admin(s) for a team
-     *
-     * @param int $team
-     * @return array
-     */
-    private function getAdminEmail($team)
-    {
-        // array for storing email adresses of admin(s)
-        $arr = array();
-        $Db = Db::getConnection();
-
-        $sql = "SELECT email FROM users WHERE (`usergroup` = 1 OR `usergroup` = 2) AND `team` = :team";
-        $req = $Db->prepare($sql);
-        $req->bindParam(':team', $team);
-        $req->execute();
-
-        while ($email = $req->fetchColumn()) {
-            $arr[] = $email;
-        }
-
-        // if we have only one admin, we need to have an associative array
-        if (count($arr) === 1) {
-            return array($arr[0] => 'Admin eLabFTW');
-        }
-
-        return $arr;
-    }
-
-    /**
      * Alert a user that they are validated
      *
      * @param string|null $email
@@ -227,7 +228,7 @@ class Email
 
         // now let's get the URL so we can have a nice link in the email
         $Request = Request::createFromGlobals();
-        $url = 'https://' . $Request->getHttpHost() . '/login.php';
+        $url = 'https://' . $Request->getHost() . ':' . $Request->getPort() . $Request->getBaseUrl() . '/login.php';
 
         $footer = "\n\n~~~\nSent from eLabFTW https://www.elabftw.net\n";
         // Create the message

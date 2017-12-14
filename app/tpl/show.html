@@ -6,6 +6,7 @@
 <div class='row'>
     <!-- LEFT MENU - CREATE NEW -->
     <div class='col-md-2'>
+    {% if not App.Session.get('anon') %}
         <div class='dropdown'>
             <button class='btn btn-default dropdown-toggle' type='button' id='dropdownMenu1' data-toggle='dropdown' aria-haspopup='true' aria-expanded='true'>{{ 'Create new'|trans }} <span class='caret'></span></button>
         <ul class='dropdown-menu' aria-labelledby='dropdownMenu1'>
@@ -21,7 +22,7 @@
                 {% if templatesArr|length > 0 %}
                     {% for tpl in templatesArr %}
                         <li class='dropdown-item'>
-                            <a href='app/controllers/ExperimentsController.php?create=true&tpl={{ tpl.id }}'>{{ tpl.name }}</a>
+                            <a href='app/controllers/ExperimentsController.php?create=true&tpl={{ tpl.id }}'>{{ tpl.name|raw }}</a>
                         </li>
                     {% endfor %}
                 {% else %}
@@ -38,6 +39,7 @@
             {% endif %}
         </ul>
         </div>
+    {% endif %}
     </div>
     <!-- RIGHT MENU -->
     <!-- we hide this menu for small devices -->
@@ -81,7 +83,7 @@
     <option value='asc' {{ Request.query.get('sort') == 'asc' ? 'selected' }}>{{ 'ASC'|trans }}</option>
 </select>
 <button class='btn btn-elab submit-order'>{{ 'Order'|trans }}</button>
-<button type='reset' class='btn btn-danger submit-reset' onClick="javascript:location.href='?mode=show'">
+<button type='reset' class='btn btn-danger submit-reset'>
     {{ 'Reset'|trans }}
 </button>
 </div>
@@ -97,15 +99,15 @@
 
 {% if count == 0 and searchType != '' %}
     {{ "Sorry. I couldn't find anything :("|trans|msg('ko', false) }}
-{% elseif count == 0 and searchType == '' %}
+{% elseif count == 0 and searchType == '' and not App.Session.get('anon') %}
     {{ "Welcome to eLabFTW. Use the 'Create new' button to get started!"|trans|msg('ok', false) }}
 {% else %}
     <p class='smallgray' style='display:inline'>
         {{ count }}
         {% trans %}
-            result found
+            result shown
         {% plural count %}
-            results found
+            results shown
         {% endtrans %}
         <a href='#' id='selectAllBoxes'>{{ 'Select all'|trans }}</a>
         <span id='advancedSelectOptions'> - <a href='#' id='unselectAllBoxes'>{{ 'Clear selection'|trans }}</a> - 
@@ -127,6 +129,16 @@
                 <option value='{{ category.category_id }}'>{{ category.category }}</option>
             {% endfor %}
         </select>
+
+        {% if Entity.type == 'experiments' %}
+        <select id='visChecked'>
+            <option selected disabled>{{ 'Change visibility'|trans }}</option>
+            {% for key, value in visibilityArr %}
+                <option value='{{ key }}'>{{ value }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+
     {% endif %}
         <button data-what = 'zip' class='button csvzip'>{{ 'Make Zip'|trans }}</button>
         <button data-what='csv' class='button csvzip'>{{ 'Make Csv'|trans }}</button>
@@ -138,7 +150,7 @@
         {% if permissions.read %}
             {# dim the experiment a bit if it's not yours #}
             {% set opacity = '1' %}
-            {% if (Entity.Users.userid != item.userid) and Entity.type == 'experiments' %}
+            {% if (Entity.Users.userid != item.userid) and Entity.type == 'experiments' and not App.Session.has('anon') %}
                 {% set opacity = '0.7' %}
             {% endif %}
             {% if Entity.Users.userData.single_column_layout %}
@@ -201,18 +213,22 @@
     {% endfor %}
     </div>
 
-    {% if count > Entity.Users.userData.limit_nb %}
-        {# show load more button if there are more results than the default display number #}
+    {% if not showAll and not searchPage %}
         <div class='center'>
-            <button class='button' id='loadButton'>{{ 'Show %s more'|trans|format(Entity.Users.userData.limit_nb) }}</button>
-            <button class='button button-neutral' id='loadAllButton'>{{ 'Show all'|trans }}</button>
+            {% if offset != 0 %}
+                <button class='button button-neutral previous-page'>{{ 'Previous page'|trans }}</button>
+            {% endif %}
+            {% if count >= Entity.Users.userData.limit_nb %}
+                <button class='button next-page'>{{ 'Next page'|trans }}</button>
+            {% endif %}
+            <button class='button button-neutral show-all'>{{ 'Show all'|trans }}</button>
         </div>
     {% endif %}
 
 {% endif %}
 
 <div id='shortcuts' data-create='{{ Entity.Users.userData.sc_create }}'></div>
-<div id='limit' data-limit='{{ Entity.Users.userData.limit_nb }}'></div>
+<div id='infos' data-limit='{{ Entity.Users.userData.limit_nb }}' data-offset='{{ offset }}'></div>
 <div id='type' data-type='{{ Entity.type }}'></div>
 <script src='app/js/show.min.js'></script>
 {% endblock body %}

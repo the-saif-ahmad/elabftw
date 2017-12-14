@@ -12,6 +12,7 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Entry point for database things
@@ -21,7 +22,13 @@ require_once 'app/init.inc.php';
 $App->pageTitle = _('Database');
 
 try {
-    $Entity = new Database($Users);
+
+    // show nothing to anon if admin didn't set the DB as public
+    if ($App->Session->has('anon') && ($App->teamConfigArr['public_db'] === '0')) {
+        throw new Exception(Tools::error(true));
+    }
+
+    $Entity = new Database($App->Users);
 
     // VIEW
     if ($Request->query->get('mode') === 'view') {
@@ -53,6 +60,7 @@ try {
         }
 
         $ItemsTypes = new ItemsTypes($Entity->Users);
+        $categoryArr = $ItemsTypes->readAll();
         $Revisions = new Revisions($Entity);
         $UploadsView = new UploadsView($Entity->Uploads);
 
@@ -63,6 +71,7 @@ try {
             'Categories' => $ItemsTypes,
             'Revisions' => $Revisions,
             'Uv' => $UploadsView,
+            'categoryArr' => $categoryArr,
             'mode' => 'edit',
             'maxUploadSize' => Tools::returnMaxUploadSize()
         );
@@ -129,15 +138,26 @@ try {
             $Entity->sort = $sort;
         }
 
-        // limit the number of items to show if there is no search parameters
-        // because with a big database this can be expensive
-        if (!$Request->query->has('q') &&
-            !$Request->query->has('tag') &&
-            !$Request->query->has('filter')) {
-            $Entity->setLimit(50);
+        // PAGINATION
+        $limit = $App->Users->userData['limit_nb'];
+        if ($Request->query->has('limit') && Tools::checkId($Request->query->get('limit'))) {
+            $limit = $Request->query->get('limit');
         }
 
-        $ItemsTypes = new ItemsTypes($Users);
+        $offset = 0;
+        if ($Request->query->has('offset') && Tools::checkId($Request->query->get('offset'))) {
+            $offset = $Request->query->get('offset');
+        }
+
+        $showAll = true;
+        if ($Request->query->get('limit') !== 'over9000') {
+            $Entity->setOffset($offset);
+            $Entity->setLimit($limit);
+            $showAll = false;
+        }
+        // END PAGINATION
+
+        $ItemsTypes = new ItemsTypes($Entity->Users);
         $categoryArr = $ItemsTypes->readAll();
 
         $itemsArr = $Entity->read();
@@ -149,12 +169,19 @@ try {
             'Request' => $Request,
             'categoryArr' => $categoryArr,
             'itemsArr' => $itemsArr,
-            'searchType' => $searchType
+            'offset' => $offset,
+            'searchType' => $searchType,
+            'showAll' => $showAll
         );
     }
+
 } catch (Exception $e) {
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
-}
 
-echo $App->render($template, $renderArr);
+} finally {
+    $Response = new Response();
+    $Response->prepare($Request);
+    $Response->setContent($App->render($template, $renderArr));
+    $Response->send();
+}

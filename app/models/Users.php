@@ -20,14 +20,14 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class Users
 {
+    /** @var Db $Db SQL Database */
+    protected $Db;
+
     /** @var Auth $Auth instance of Auth */
-    private $Auth;
+    public $Auth;
 
     /** @var Config $Config instance of Config */
     public $Config;
-
-    /** @var Db $Db SQL Database */
-    protected $Db;
 
     /** @var bool $needValidation flag to check if we need validation or not */
     public $needValidation = false;
@@ -99,9 +99,8 @@ class Users
             throw new Exception(_('Someone is already using that email address!'));
         }
 
-        if (!$this->Auth->checkPasswordLength($password) && strlen($password) > 0) {
-            $error = sprintf(_('Password must contain at least %s characters.'), self::MIN_PASSWORD_LENGTH);
-            throw new Exception($error);
+        if ($password) {
+            $this->Auth->checkPasswordLength($password);
         }
 
         $firstname = filter_var($firstname, FILTER_SANITIZE_STRING);
@@ -212,7 +211,7 @@ class Users
      */
     public function isDuplicateEmail($email)
     {
-        $sql = "SELECT email FROM users WHERE email = :email";
+        $sql = "SELECT email FROM users WHERE email = :email AND archived = 0";
         $req = $this->Db->prepare($sql);
         $req->bindParam(':email', $email);
         $req->execute();
@@ -279,7 +278,8 @@ class Users
      */
     public function readFromEmail($email)
     {
-        $sql = "SELECT userid, CONCAT(firstname, ' ', lastname) AS fullname, team FROM users WHERE email = :email";
+        $sql = "SELECT userid, CONCAT(firstname, ' ', lastname) AS fullname, team FROM users
+            WHERE email = :email AND archived = 0";
         $req = $this->Db->prepare($sql);
         $req->bindParam(':email', $email);
         $req->execute();
@@ -294,7 +294,7 @@ class Users
      */
     public function readFromApiKey($apiKey)
     {
-        $sql = "SELECT userid FROM users WHERE api_key = :key";
+        $sql = "SELECT userid FROM users WHERE api_key = :key AND archived = 0";
         $req = $this->Db->prepare($sql);
         $req->bindParam(':key', $apiKey);
         $req->execute();
@@ -360,7 +360,7 @@ class Users
      */
     public function getAllEmails()
     {
-        $sql = "SELECT email FROM users WHERE validated = 1";
+        $sql = "SELECT email FROM users WHERE validated = 1 AND archived = 0";
         $req = $this->Db->prepare($sql);
         $req->execute();
 
@@ -496,10 +496,29 @@ class Users
             $new_cjk_fonts = 1;
         }
 
+        // PDF/A
+        $new_pdfa = 0;
+        if (isset($params['pdfa']) && $params['pdfa'] === 'on') {
+            $new_pdfa = 1;
+        }
+
+        // PDF format
+        $new_pdf_format = 'A4';
+        $formatsArr = array('A4', 'LETTER', 'ROYAL');
+        if (in_array($params['pdf_format'], $formatsArr)) {
+            $new_pdf_format = $params['pdf_format'];
+        }
+
         // USE MARKDOWN
         $new_use_markdown = 0;
         if (isset($params['use_markdown']) && $params['use_markdown'] === 'on') {
             $new_use_markdown = 1;
+        }
+
+        // INCLUDE FILES IN PDF
+        $new_inc_files_pdf = 0;
+        if (isset($params['inc_files_pdf']) && $params['inc_files_pdf'] === 'on') {
+            $new_inc_files_pdf = 1;
         }
 
         // CHEM EDITOR
@@ -536,7 +555,10 @@ class Users
             default_vis = :new_default_vis,
             single_column_layout = :new_layout,
             cjk_fonts = :new_cjk_fonts,
-            use_markdown = :new_use_markdown
+            pdfa = :new_pdfa,
+            pdf_format = :new_pdf_format,
+            use_markdown = :new_use_markdown,
+            inc_files_pdf = :new_inc_files_pdf
             WHERE userid = :userid;";
         $req = $this->Db->prepare($sql);
         $req->bindParam(':new_limit', $new_limit);
@@ -553,7 +575,10 @@ class Users
         $req->bindParam(':new_default_vis', $new_default_vis);
         $req->bindParam(':new_layout', $new_layout);
         $req->bindParam(':new_cjk_fonts', $new_cjk_fonts);
+        $req->bindParam(':new_pdfa', $new_pdfa);
+        $req->bindParam(':new_pdf_format', $new_pdf_format);
         $req->bindParam(':new_use_markdown', $new_use_markdown);
+        $req->bindParam(':new_inc_files_pdf', $new_inc_files_pdf);
         $req->bindParam(':userid', $this->userid);
 
         return $req->execute();
@@ -638,12 +663,7 @@ class Users
             $userid = $this->userid;
         }
 
-        if (!$this->Auth->checkPasswordLength($password)) {
-            // fix for php56
-            $min = Auth::MIN_PASSWORD_LENGTH;
-            $error = sprintf(_('Password must contain at least %s characters.'), $min);
-            throw new Exception($error);
-        }
+        $this->Auth->checkPasswordLength($password);
 
         $salt = hash("sha512", uniqid(rand(), true));
         $passwordHash = hash("sha512", $salt . $password);
@@ -706,6 +726,29 @@ class Users
         $Email->alertUserIsValidated($this->userData['email']);
 
         return $msg;
+    }
+
+    /**
+     * Archive a user
+     *
+     * @return bool
+     */
+    public function archive()
+    {
+        $sql = "UPDATE users SET archived = 1, token = null WHERE userid = :userid";
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':userid', $this->userid);
+        $res1 = $req->execute();
+
+        $sql = "UPDATE experiments
+            SET locked = :locked, lockedby = :lockedby, lockedwhen = CURRENT_TIMESTAMP WHERE userid = :userid";
+        $req = $this->Db->prepare($sql);
+        $req->bindValue(':locked', 1);
+        $req->bindParam(':lockedby', $this->userid);
+        $req->bindParam(':userid', $this->userid);
+        $res2 = $req->execute();
+
+        return $res1 && $res2;
     }
 
     /**
@@ -780,7 +823,7 @@ class Users
             throw new Exception('Email malformed');
         }
 
-        $sql = "UPDATE users SET usergroup = 1 WHERE email = :email";
+        $sql = "UPDATE users SET usergroup = 1 WHERE email = :email AND archived = 0";
         $req = $this->Db->prepare($sql);
         $req->bindParam(':email', $email);
 

@@ -14,7 +14,7 @@ use Exception;
 use ZipArchive;
 use RecursiveIteratorIterator;
 use RecursiveDirectoryIterator;
-use FileSystemIterator;
+use FilesystemIterator;
 
 /**
  * Import a .elabftw.zip file into the database.
@@ -70,18 +70,6 @@ class ImportZip extends AbstractImport
     }
 
     /**
-     * Extract the zip to the temporary folder
-     *
-     * @throws Exception if it cannot open the zip
-     * @return bool
-     */
-    protected function openFile()
-    {
-        $Zip = new ZipArchive;
-        return $Zip->open($this->getFilePath()) && $Zip->extractTo($this->tmpPath);
-    }
-
-    /**
      * We get all the info we need from the embedded .json file
      *
      */
@@ -108,7 +96,6 @@ class ImportZip extends AbstractImport
         $req->execute();
         return $req->fetchColumn();
     }
-
 
     /**
      * The main SQL to create a new item with the title and body we have
@@ -209,14 +196,26 @@ class ImportZip extends AbstractImport
     }
 
     /**
+     * Extract the zip to the temporary folder
+     *
+     * @throws Exception if it cannot open the zip
+     * @return bool
+     */
+    protected function openFile()
+    {
+        $Zip = new ZipArchive;
+        $Zip->open($this->getFilePath()) && $Zip->extractTo($this->tmpPath);
+    }
+
+    /**
      * Cleanup : remove the temporary folder created
      *
      */
     public function __destruct()
     {
         // first remove content
-        $di = new \RecursiveDirectoryIterator($this->tmpPath, \FilesystemIterator::SKIP_DOTS);
-        $ri = new \RecursiveIteratorIterator($di, \RecursiveIteratorIterator::CHILD_FIRST);
+        $di = new RecursiveDirectoryIterator($this->tmpPath, FilesystemIterator::SKIP_DOTS);
+        $ri = new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST);
         foreach ($ri as $file) {
             $file->isDir() ? rmdir($file) : unlink($file);
         }

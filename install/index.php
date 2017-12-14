@@ -115,7 +115,9 @@ try {
     // if we are not in https, die saying we work only in https
     if (!$Request->isSecure() && !$Request->server->has('HTTP_X_FORWARDED_PROTO')) {
         // get the url to display a link to click (without the port)
-        $url = 'https://' . $Request->getHttpHost();
+        $url = Tools::getUrl($Request);
+        // not pretty but gets the job done
+        $url = str_replace('install/', '', $url);
         $message = "eLabFTW works only in HTTPS. Please enable HTTPS on your server. Or click this link : <a href='" .
             $url . "'>$url</a>";
         throw new Exception($message);
@@ -235,36 +237,7 @@ try {
 
     </section>
 
-    <script>
-    $(document).ready(function() {
-        // hide the install button
-        $('#final_section').hide();
-
-        // sql test button
-        $('#test_sql_button').click(function() {
-            var mysql_host = $('#db_host').val();
-            var mysql_name = $('#db_name').val();
-            var mysql_user = $('#db_user').val();
-            var mysql_password = $('#db_password').val();
-
-            $.post('test.php', {
-                mysql: 1,
-                db_host: mysql_host,
-                db_name: mysql_name,
-                db_user: mysql_user,
-                db_password: mysql_password
-            }).done(function(test_result) {
-                if (test_result == 1) {
-                    alert('MySQL connection was successful ! :)');
-                    $('#test_sql_button').hide();
-                    $('#final_section').show();
-                } else {
-                    alert('The connection failed with this error : ' + test_result);
-                }
-            });
-        });
-    });
-    </script>
+    <script src='../app/js/install.js'></script>
     <?php
 } catch (Exception $e) {
     echo Tools::displayMessage($e->getMessage(), 'ko', false);
@@ -272,4 +245,3 @@ try {
 } finally {
     echo "</body></html>";
 }
-

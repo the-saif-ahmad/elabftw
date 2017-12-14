@@ -21,7 +21,7 @@ try {
     $location = '../../login.php';
 
     $FormKey = new FormKey($Session);
-    $Saml = new Saml($Config, new Idps);
+    $Saml = new Saml($App->Config, new Idps);
 
     if ($Request->request->has('idp_id')) { // login with SAML
         $idpId = $Request->request->get('idp_id');
@@ -29,6 +29,14 @@ try {
         $SamlAuth = new OneLogin_Saml2_Auth($settings);
         $returnUrl = $settings['baseurl'] . "/index.php?acs&idp=" . $idpId;
         $SamlAuth->login($returnUrl);
+
+    } elseif ($Request->request->has('team_id') && $App->Config->configArr['anon_users']) { // login as anonymous
+        $App->Users->Auth->loginAsAnon($Request->request->get('team_id'));
+        if ($Request->cookies->has('redirect')) {
+            $location = $Request->cookies->get('redirect');
+        } else {
+            $location = '../../experiments.php';
+        }
 
     } else {
 
@@ -49,7 +57,7 @@ try {
         }
 
         // the actual login
-        if ($Auth->login($Request->request->get('email'), $Request->request->get('password'), $rememberme)) {
+        if ($App->Users->Auth->login($Request->request->get('email'), $Request->request->get('password'), $rememberme)) {
             if ($Request->cookies->has('redirect')) {
                 $location = $Request->cookies->get('redirect');
             } else {

@@ -11,6 +11,7 @@
 namespace Elabftw\Elabftw;
 
 use PDO;
+use Exception;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -29,9 +30,6 @@ class Auth
 
     /** @var array $userData All the user data for a user */
     private $userData;
-
-    /** @var string $token Token that will be in the cookie + db */
-    private $token;
 
     /**
      * Constructor
@@ -52,11 +50,122 @@ class Auth
      */
     private function getSalt($email)
     {
-        $sql = "SELECT salt FROM users WHERE email = :email";
+        $sql = "SELECT salt FROM users WHERE email = :email AND archived = 0";
         $req = $this->Db->prepare($sql);
         $req->bindParam(':email', $email);
         $req->execute();
+
         return $req->fetchColumn();
+    }
+
+    /**
+     * Login with the cookie
+     *
+     * @return bool true if token in cookie is found in database
+     */
+    private function loginWithCookie()
+    {
+        // If user has a cookie; check cookie is valid
+        // the token is a sha256 sum: 64 char
+        if (!$this->Request->cookies->has('token') || strlen($this->Request->cookies->get('token')) != 64) {
+            return false;
+        }
+        $token = $this->Request->cookies->filter('token', null, FILTER_SANITIZE_STRING);
+
+        // Now compare current cookie with the token from SQL
+        $sql = "SELECT * FROM users WHERE token = :token LIMIT 1";
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':token', $token);
+
+        if ($req->execute() && $req->rowCount() === 1) {
+            $this->userData = $req->fetch();
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Populate userData from email
+     *
+     * @param string|null $email
+     * @return bool
+     */
+    private function populateUserDataFromEmail($email)
+    {
+        $sql = "SELECT * FROM users WHERE email = :email AND archived = 0";
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':email', $email);
+        //Check whether the query was successful or not
+        if ($req->execute() && $req->rowCount() === 1) {
+            // populate the userData
+            $this->userData = $req->fetch();
+            return true;
+        }
+        throw new Exception('Cannot set user data from email!');
+    }
+
+    /**
+     * Store userid and permissions in session
+     *
+     * @return bool
+     */
+    private function populateSession()
+    {
+        $this->Request->getSession()->set('auth', 1);
+        $this->Request->getSession()->set('userid', $this->userData['userid']);
+
+        // load permissions
+        $perm_sql = "SELECT * FROM groups WHERE group_id = :group_id LIMIT 1";
+        $perm_req = $this->Db->prepare($perm_sql);
+        $perm_req->bindParam(':group_id', $this->userData['usergroup']);
+        $perm_req->execute();
+        $group = $perm_req->fetch(PDO::FETCH_ASSOC);
+
+        $this->Request->getSession()->set('is_admin', $group['is_admin']);
+        $this->Request->getSession()->set('is_sysadmin', $group['is_sysadmin']);
+        return true;
+    }
+
+    /**
+     * Set a $_COOKIE['token'] and update the database with this token.
+     * Works only in HTTPS, valable for 1 month.
+     * 1 month = 60*60*24*30 =  2592000
+     *
+     * @return bool
+     */
+    private function setToken()
+    {
+        $token = hash('sha256', uniqid(rand(), true));
+
+        // create cookie
+        // name, value, expire, path, domain, secure, httponly
+        setcookie('token', $token, time() + 2592000, '/', null, true, true);
+
+        // Update the token in SQL
+        $sql = "UPDATE users SET token = :token WHERE userid = :userid";
+        $req = $this->Db->prepare($sql);
+        $req->bindParam(':token', $token);
+        $req->bindParam(':userid', $this->userData['userid']);
+
+        return $req->execute();
+    }
+
+    /**
+     * Check the number of character of a password
+     *
+     * @param string $password The password to check
+     * @throws Exception
+     * @return bool
+     */
+    public function checkPasswordLength($password)
+    {
+        // fix for php56
+        $min = self::MIN_PASSWORD_LENGTH;
+        if (strlen($password) < $min) {
+            throw new Exception(sprintf(_('Password must contain at least %s characters.'), $min));
+        }
+        return true;
     }
 
     /**
@@ -70,89 +179,13 @@ class Auth
     {
         $passwordHash = hash('sha512', $this->getSalt($email) . $password);
 
-        $sql = "SELECT * FROM users WHERE email = :email AND password = :passwordHash AND validated = 1";
+        $sql = "SELECT * FROM users WHERE email = :email AND password = :passwordHash
+            AND validated = 1 AND archived = 0";
         $req = $this->Db->prepare($sql);
         $req->bindParam(':email', $email);
         $req->bindParam(':passwordHash', $passwordHash);
-        //Check whether the query was successful or not
-        if ($req->execute() && $req->rowCount() === 1) {
-            // populate the userData
-            $this->userData = $req->fetch();
-            return true;
-        }
-        return false;
-    }
 
-    /**
-     * Check the number of character of a password
-     *
-     * @param string $password The password to check
-     * @return bool true if the length is enough
-     */
-    public function checkPasswordLength($password)
-    {
-        // fix for php56
-        $min = self::MIN_PASSWORD_LENGTH;
-        return strlen($password) >= $min;
-    }
-
-    /**
-     * Store userid and permissions in session
-     *
-     * @param string|null $email
-     * @return bool
-     */
-    private function populateSession($email = null)
-    {
-        if ($email !== null) {
-            $sql = "SELECT * FROM users WHERE email = :email";
-            $req = $this->Db->prepare($sql);
-            $req->bindParam(':email', $email);
-            //Check whether the query was successful or not
-            if ($req->execute() && $req->rowCount() === 1) {
-                // populate the userData
-                $this->userData = $req->fetch();
-            } else {
-                return false;
-            }
-        }
-
-        //$this->Request->getSession()->migrate(true);
-        $this->Request->getSession()->set('auth', 1);
-        $this->Request->getSession()->set('userid', $this->userData['userid']);
-
-        // load permissions
-        $perm_sql = "SELECT * FROM groups WHERE group_id = :group_id LIMIT 1";
-        $perm_req = $this->Db->prepare($perm_sql);
-        $perm_req->bindParam(':group_id', $this->userData['usergroup']);
-        $perm_req->execute();
-        $group = $perm_req->fetch(PDO::FETCH_ASSOC);
-
-        $this->Request->getSession()->set('is_admin', $group['is_admin']);
-        $this->Request->getSession()->set('is_sysadmin', $group['is_sysadmin']);
-        // create a token
-        $this->token = md5(uniqid(rand(), true));
-
-        return true;
-    }
-
-    /**
-     * Set a $_COOKIE['token'] and update the database with this token.
-     * Works only in HTTPS, valable for 1 month.
-     * 1 month = 60*60*24*30 =  2592000
-     *
-     * @return bool
-     */
-    private function setToken()
-    {
-        setcookie('token', $this->token, time() + 2592000, '/', null, true, true);
-        // Update the token in SQL
-        $sql = "UPDATE users SET token = :token WHERE userid = :userid";
-        $req = $this->Db->prepare($sql);
-        $req->bindParam(':token', $this->token);
-        $req->bindParam(':userid', $this->userData['userid']);
-
-        return $req->execute();
+        return $req->execute() && $req->rowCount() === 1;
     }
 
     /**
@@ -166,6 +199,7 @@ class Auth
     public function login($email, $password, $setCookie = 'on')
     {
         if ($this->checkCredentials($email, $password)) {
+            $this->populateUserDataFromEmail($email);
             $this->populateSession();
             if ($setCookie === 'on') {
                 return $this->setToken();
@@ -176,59 +210,41 @@ class Auth
     }
 
     /**
-     * Login with the cookie
+     * Login anonymously in a team
      *
-     * @return bool true if token in cookie is found in database
+     * @param int $team
      */
-    private function loginWithCookie()
+    public function loginAsAnon($team)
     {
-        // If user has a cookie; check cookie is valid
-        // the token is a md5 sum: 32 char
-        if (!$this->Request->cookies->has('token') || strlen($this->Request->cookies->get('token')) != 32) {
-            return false;
-        }
-        $token = $this->Request->cookies->filter('token', null, FILTER_SANITIZE_STRING);
-        // Now compare current cookie with the token from SQL
-        $sql = "SELECT * FROM users WHERE token = :token LIMIT 1";
-        $req = $this->Db->prepare($sql);
-        $req->bindParam(':token', $token);
-        $req->execute();
+        $this->Request->getSession()->set('anon', 1);
+        $this->Request->getSession()->set('team', $team);
 
-
-        if ($req->rowCount() === 1) {
-            $this->userData = $req->fetch();
-            return true;
-        }
-
-        return false;
+        $this->Request->getSession()->set('is_admin', 0);
+        $this->Request->getSession()->set('is_sysadmin', 0);
     }
 
     /**
-     * Login with SAML
+     * Login with SAML. When this is called, user is authenticated with IDP
      *
      * @param string $email
      * @return bool
      */
-    public function loginWithSaml($email)
+    public function loginFromSaml($email)
     {
-        if (!$this->populateSession($email)) {
-            return false;
+        if ($this->populateUserDataFromEmail($email)) {
+            $this->populateSession();
+            $this->setToken();
+            return true;
         }
-        $this->setToken();
-        return true;
+        return false;
     }
 
     /**
-     * Check authentication of current user
-     *     ____          _
-     *    / ___|___ _ __| |__   ___ _ __ _   _ ___
-     *   | |   / _ \ '__| '_ \ / _ \ '__| | | / __|
-     *   | |___  __/ |  | |_) |  __/ |  | |_| \__ \
-     *    \____\___|_|  |_.__/ \___|_|   \__,_|___/
+     * Check if we need to bother with authentication of current user
      *
      * @return bool True if we are authentified (or if we don't need to be)
      */
-    public function isAuth()
+    public function needAuth()
     {
         // pages where you don't need to be logged in
         // only the script name, not the path because we use basename() on it
@@ -243,10 +259,24 @@ class Auth
             'ResetPasswordController.php'
         );
 
-        if (in_array(basename($this->Request->getScriptName()), $nologinArr)) {
+        return !in_array(basename($this->Request->getScriptName()), $nologinArr);
+    }
+
+    /**
+     * Try to authenticate with session and cookie
+     *     ____          _
+     *    / ___|___ _ __| |__   ___ _ __ _   _ ___
+     *   | |   / _ \ '__| '_ \ / _ \ '__| | | / __|
+     *   | |___  __/ |  | |_) |  __/ |  | |_| \__ \
+     *    \____\___|_|  |_.__/ \___|_|   \__,_|___/
+     *
+     * @return bool true if we are authenticated
+     */
+    public function tryAuth()
+    {
+        if ($this->Request->getSession()->has('anon')) {
             return true;
         }
-
         // if we are already logged in with the session, skip everything
         if ($this->Request->getSession()->has('auth')) {
             return true;

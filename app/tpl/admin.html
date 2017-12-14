@@ -2,7 +2,7 @@
 
 {% block body %}
 <!-- UNVALIDATED USERS BLOCK -->
-{% if unvalidatedUsersArr|length > 0 %} 
+{% if unvalidatedUsersArr|length > 0 %}
     <form method='post' action='app/controllers/UsersController.php'>
         <input type='hidden' name='usersValidate' value='true' />
         {{ FormKey.getFormkey|raw }}
@@ -55,6 +55,14 @@
                     <option value='0'{{ not App.teamConfigArr.deletable_xp ? " selected='selected'" }}>{{ 'No'|trans }}</option>
                 </select>
                 <span class='smallgray'>{{ 'An admin account will always be able to delete experiments.'|trans }}</span>
+            </p>
+
+            <p>
+                <label for='public_db'>{{ 'Anonymous visitors can see database items:'|trans }}</label>
+                <select class='clean-form' name='public_db' id='public_db'>
+                    <option value='1'{{ App.teamConfigArr.public_db ? " selected='selected'" }}>{{ 'Yes'|trans }}</option>
+                    <option value='0'{{ not App.teamConfigArr.public_db ? " selected='selected'" }}>{{ 'No'|trans }}</option>
+                </select>
             </p>
 
             <p>
@@ -218,7 +226,7 @@
                 <ul class='list-inline'>
                     <li>{{ 'Name'|trans }} <input type='text' id='statusName' /></li>
                     <li>{{ 'Color'|trans }} <input class='colorpicker' type='text' id='statusColor' value='000000' /></li>
-                    <li>{{ 'Allow timestamp'|trans }} <input type='checkbox' id='statusTimestamp' /></li>
+                    <li><input type='checkbox' id='statusTimestamp' /> {{ 'Allow timestamp'|trans }}</li>
                     <li><button class='button' id='statusCreate'>{{ 'Save'|trans }}</button></li>
                 </ul>
             </li>
@@ -235,7 +243,7 @@
                     <li>{{ 'Name'|trans }} <input required type='text' id='statusName_{{ status.category_id }}' value='{{ status.category }}' /></li>
                     <li style='color:#{{ status.color }}'>{{ 'Color'|trans }} <input class='colorpicker' type='text' maxlength='6' id='statusColor_{{ status.category_id }}' value='{{ status.color }}' />
                     </li>
-                    <li>{{ 'Allow timestamp'|trans }} <input type='checkbox' id='statusTimestamp_{{ status.category_id }}' {{ status.is_timestampable ? " checked" }} /></li>
+                    <li><input type='checkbox' id='statusTimestamp_{{ status.category_id }}' {{ status.is_timestampable ? " checked" }} /> {{ 'Allow timestamp'|trans }}</li>
                     <li><input type='radio' name='defaultRadio' id='statusDefault_{{ status.category_id }}' {{ status.is_default ? " checked" }} />
                         {{ 'Default status'|trans }}</li>
 
@@ -322,7 +330,7 @@
     <div class='box'>
         <h3>{{ 'Common Experiment Template'|trans }}</h3><hr>
         <p>{{ 'This is the default text when someone creates an experiment.'|trans }}</p>
-        <textarea style='height:400px' data-lang='{{ Users.userData.lang }}' class='mceditable' id='commonTplTemplate' />
+        <textarea style='height:400px' data-lang='{{ App.Users.userData.lang }}' class='mceditable' id='commonTplTemplate' />
             {{ commonTplBody|raw }}
         </textarea>
         <div class='submitButtonDiv'>
@@ -343,7 +351,7 @@
 
         <label class='block' for='item_selector_csv'>{{ '1. Select a type of item to import to:'|trans }}</label>
         <select class='clean-form col-3-form item-selector' id='item_selector_csv'>
-            <option value='' selected disabled>--------</option>
+            <option selected disabled>--------</option>
             {% for itemsType in itemsTypesArr %}
                 <option value='{{ itemsType.category_id }}' name='type'>{{ itemsType.category }}</option>
             {% endfor %}
@@ -374,12 +382,12 @@
 
         <label class='block' for='item_selector_zip'>{{ '1. Select where to import:'|trans }}</label>
         <select class='clean-form col-3-form item-selector' id='item_selector_zip'>
-            <option value='' selected disabled>-------</option>
-            <option class='disabled-input' value='' disabled>Import items</option>
+            <option selected disabled>-------</option>
+            <option class='disabled-input' disabled>Import items</option>
             {% for itemsType in itemsTypesArr %}
                 <option value='{{ itemsType.category_id }}' name='type'>{{ itemsType.category }}</option>
             {% endfor %}
-            <option class='disabled-input' value='' disabled>Import experiments</option>
+            <option class='disabled-input' disabled>Import experiments</option>
 
             {% for user in usersArr %}
                 <option value='{{ user.userid }}' name='type'>{{ user.fullname|raw }}</option>

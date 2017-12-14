@@ -66,26 +66,11 @@ class MakeZip extends AbstractMake
         $this->idList = $idList;
 
         $this->fileName = $this->getUniqueString();
-        $this->filePath = $this->getFilePath($this->fileName, true);
+        $this->filePath = $this->getTmpPath() . $this->fileName;
 
         $this->createZipArchive();
         $this->loopIdArr();
 
-    }
-
-    /**
-     * This is the name of the file that will get downloaded
-     *
-     * @return string
-     */
-    public function getCleanName()
-    {
-        $ext = '.elabftw.zip';
-
-        if (count($this->idArr) === 1) {
-            return $this->Entity->entityData['date'] . "-" . $this->cleanTitle . $ext;
-        }
-        return Tools::kdate() . $ext;
     }
 
     /**
@@ -249,6 +234,21 @@ class MakeZip extends AbstractMake
         if (!is_file($this->filePath)) {
             throw new Exception(_('Error making the zip archive!'));
         }
+    }
+
+    /**
+     * This is the name of the file that will get downloaded
+     *
+     * @return string
+     */
+    public function getCleanName()
+    {
+        $ext = '.elabftw.zip';
+
+        if (count($this->idArr) === 1) {
+            return $this->Entity->entityData['date'] . "-" . $this->cleanTitle . $ext;
+        }
+        return Tools::kdate() . $ext;
     }
 
     /**

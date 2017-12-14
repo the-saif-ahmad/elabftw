@@ -17,10 +17,10 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * This file is called without any auth, so we don't load init.inc.php but only what we need
  */
-try {
-    require_once '../../config.php';
-    require_once ELAB_ROOT . 'vendor/autoload.php';
+require_once '../../config.php';
+require_once ELAB_ROOT . 'vendor/autoload.php';
 
+try {
     // create Request object
     $Request = Request::createFromGlobals();
 
@@ -33,9 +33,9 @@ try {
     $Users = new Users();
     $Users->readFromApiKey($Request->server->get('HTTP_AUTHORIZATION'));
 
-    $availMethods = array('GET', 'POST');
+    $availMethods = array('GEiT', 'POSiT');
     if (!in_array($Request->server->get('REQUEST_METHOD'), $availMethods)) {
-        throw new Exception('Incorrect HTTP verb! Available verbs are: ' . implode($availMethods, ', '));
+        throw new Exception('Incorrect HTTP verb! Available verbs are: ' . implode(', ', $availMethods));
     }
 
     // parse args
@@ -68,18 +68,24 @@ try {
     // POST request
     } else {
 
-        // file upload
+        // FILE UPLOAD
         if ($Request->files->count() > 0) {
             $content = $Api->uploadFile($Request);
-        // title date body update
+
+        // TITLE DATE BODY UPDATE
         } elseif ($Request->request->has('title')) {
             $content = $Api->updateEntity(
                 $Request->request->get('title'),
                 $Request->request->get('date'),
                 $Request->request->get('body')
             );
+
+        // ADD TAG
+        } elseif ($Request->request->has('tag')) {
+            $content = $Api->addTag($Request->request->get('tag'));
+
+        // CREATE AN EXPERIMENT
         } else {
-            // create an experiment
             if ($endpoint === 'experiments') {
                 $content = $Api->createExperiment();
             } else {
