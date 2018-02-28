@@ -59,6 +59,38 @@
             location = 'database.php';
         }
 
+        // check if there is some local data with this id to recover
+        if ((localStorage.getItem('id') == id) && (localStorage.getItem('type') == type)) {
+            var bodyRecovery = $('<div></div>', {
+                'class' : 'alert alert-warning',
+                html: 'Recovery data found (saved on ' + localStorage.getItem('date') + '). It was probably saved because your session timed out and it could not be saved in the database. Do you want to recover it?<br><button class="button recover-yes">YES</button> <button class="button button-delete recover-no">NO</button><br><br>Here is what it looks like: ' + localStorage.getItem('body')
+            });
+            $('#main_section').before(bodyRecovery);
+        }
+
+        // RECOVER YES
+        $(document).on('click', '.recover-yes', function() {
+            $.post('app/controllers/EntityController.php', {
+                quickSave: true,
+                type : type,
+                id : id,
+                // we need this to get the updated content
+                title : document.getElementById('title_input').value,
+                date : document.getElementById('datepicker').value,
+                body : localStorage.getItem('body')
+            }).done(function() {
+                localStorage.clear();
+                document.location.reload(true);
+            });
+        });
+
+        // RECOVER NO
+        $(document).on('click', '.recover-no', function() {
+            localStorage.clear();
+            document.location.reload();
+        });
+
+
         var Entity = {
             destroy: function() {
                 if (confirm(confirmText)) {
@@ -83,14 +115,18 @@
         var Tag = {
             controller: 'app/controllers/EntityController.php',
             // the argument here is the event (needed to detect which key is pressed)
-            create: function(e) {
-                var keynum;
-                if (e.which) {
-                    keynum = e.which;
+            saveOnEnter: function(e) {
+                // if the key that was pressed was Enter (ascii code 13)
+                if (e.which === 13) {
+                    this.save();
                 }
-                if (keynum === 13) { // if the key that was pressed was Enter (ascii code 13)
-                    // get tag
-                    var tag = $('#createTagInput').val();
+            },
+
+            save: function() {
+                // get tag
+                var tag = $('#createTagInput').val();
+                // do nothing if input is empty
+                if (tag.length > 0) {
                     // POST request
                     $.post(this.controller, {
                         createTag: true,
@@ -102,8 +138,9 @@
                         // clear input field
                         $('#createTagInput').val('');
                     });
-                } // end if key is enter
+                }
             },
+
             destroy: function(tag) {
                 if (confirm(confirmText)) {
                     $.post(this.controller, {
@@ -328,7 +365,11 @@
         // CREATE TAG
         // listen keypress, add tag when it's enter
         $(document).on('keypress', '#createTagInput', function(e) {
-            Tag.create(e);
+            Tag.saveOnEnter(e);
+        });
+        // also add the tag if the focus is lost because it looks like it's not obvious for people to use the enter key
+        $(document).on('blur', '#createTagInput', function() {
+            Tag.save();
         });
         // AUTOCOMPLETE THE TAGS
         var cache = {};
