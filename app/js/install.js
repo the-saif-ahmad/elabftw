@@ -2,6 +2,11 @@ $(document).ready(function() {
     // hide the install button
     $('#final_section').hide();
 
+    // show last part if form is submitted directly
+    $('#install-form').submit(function() {
+        $('#final_section').show();
+    });
+
     // sql test button
     $('#test_sql_button').click(function() {
         var mysql_host = $('#db_host').val();
@@ -24,5 +29,10 @@ $(document).ready(function() {
                 alert('The connection failed with this error : ' + test_result);
             }
         });
+    });
+
+    // reload page button
+    $('.click2reload').click(function() {
+        document.location.reload();
     });
 });

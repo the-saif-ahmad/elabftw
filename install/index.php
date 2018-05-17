@@ -172,7 +172,7 @@ try {
     <h3>Configuration</h3>
 
     <!-- MYSQL -->
-    <form action='install.php' method='post'>
+    <form action='install.php' id='install-form' method='post'>
     <fieldset>
     <legend><strong>MySQL</strong></legend>
     <p>MySQL is the database that will store everything. eLabFTW need to connect to it with a username/password. This is <strong>NOT</strong> your account with which you'll use eLabFTW. If you followed the installation instructions, you should have created a database <em>elabftw</em> with a user <em>elabftw</em> that have all the rights on it.</p>
@@ -226,12 +226,12 @@ try {
     <div class='center' style='margin-top:8px'>
         <button type="submit" name="Submit" class='button'>INSTALL eLabFTW</button>
     </div>
-
-    <p>If the config.php file is in place, <button onclick='window.location.reload()'>reload this page</button></p>
-    <p>You will be redirected to the registration page, where you can get your admin account :)</p>
-    </section>
-
     </form>
+
+    <p>If the config.php file is in place, <button class='button click2reload'>reload this page</button></p>
+    <p>You will be redirected to the registration page, where you can get your admin account :)</p>
+
+    </section>
 
     </section>
 
