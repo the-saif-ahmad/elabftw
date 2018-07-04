@@ -430,6 +430,9 @@ class Users
      */
     public function updatePreferences(array $params): bool
     {
+        // DEMO ABORT
+        throw new Exception('Sorry you cannot change the settings in demo mode.');
+
         // LIMIT
         $filter_options = array(
             'options' => array(
@@ -599,6 +602,9 @@ class Users
      */
     public function updateAccount(array $params): bool
     {
+        // DEMO ABORT
+        throw new Exception('Sorry you cannot change the settings in demo mode.');
+
         // check that we got the good password
         if (!$this->Auth->checkCredentials($this->userData['email'], $params['currpass'])) {
             throw new Exception(_("Please input your current password!"));
