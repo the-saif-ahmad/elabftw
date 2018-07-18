@@ -33,7 +33,7 @@ class Update
      * AND src/sql/structure.sql
      * /////////////////////////////////////////////////////
      */
-    private const REQUIRED_SCHEMA = 41;
+    private const REQUIRED_SCHEMA = 42;
 
     /**
      * Init Update with Config and Db
@@ -96,6 +96,11 @@ class Update
             // 20180602 v2.0.0
             $this->schema41();
             $this->updateSchema(41);
+        }
+        if ($current_schema < 42) {
+            // 20180716 v2.0.0
+            $this->schema42();
+            $this->updateSchema(42);
         }
         // place new schema functions above this comment
 
@@ -207,7 +212,6 @@ class Update
         }
 
         // now create the mapping table
-        // TODO add foreign key or something
         $sql = "CREATE TABLE IF NOT EXISTS `tags2entity` ( `item_id` INT NOT NULL , `tag_id` INT NOT NULL , `item_type` VARCHAR(255) NOT NULL)";
         if (!$this->Db->q($sql)) {
             throw new Exception('Problem creating table tags2entity!');
@@ -283,7 +287,7 @@ class Update
                 $lastId = $this->Db->lastInsertId();
                 // now reference it
                 $insertReq2->bindParam(':item_id', $tag['item_id']);
-                $insertReq2->bindValue(':item_type', 'experiments');
+                $insertReq2->bindValue(':item_type', 'items');
                 $insertReq2->bindParam(':tag_id', $lastId);
                 $insertReq2->execute();
             } else {
@@ -311,15 +315,30 @@ class Update
                 $lastId = $this->Db->lastInsertId();
                 // now reference it
                 $insertReq2->bindParam(':item_id', $tag['item_id']);
-                $insertReq2->bindValue(':item_type', 'experiments');
+                $insertReq2->bindValue(':item_type', 'experiments_tpl');
                 $insertReq2->bindParam(':tag_id', $lastId);
                 $insertReq2->execute();
             } else {
                 $insertReq2->bindParam(':item_id', $tag['item_id']);
-                $insertReq2->bindValue(':item_type', 'experiments_templates');
+                $insertReq2->bindValue(':item_type', 'experiments_tpl');
                 $insertReq2->bindParam(':tag_id', $res);
                 $insertReq2->execute();
             }
         }
     }
+
+    /**
+     * Add visibility to Db items
+     *
+     * @throws Exception
+     * @return void
+     */
+    private function schema42(): void
+    {
+        $sql = "ALTER TABLE `items` ADD `visibility` VARCHAR(255) NOT NULL DEFAULT 'team'";
+        if (!$this->Db->q($sql)) {
+            throw new Exception('Problem adding visibility to database items (schema 42)!');
+        }
+    }
+
 }

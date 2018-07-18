@@ -36,6 +36,11 @@ class Config
     {
         $this->Db = Db::getConnection();
         $this->configArr = $this->read();
+        // this should only run once: just after a fresh install
+        if (empty($this->configArr)) {
+            $this->populate();
+            $this->configArr = $this->read();
+        }
     }
 
     /**
@@ -99,10 +104,6 @@ class Config
         // encrypt password
         if (isset($post['smtp_password']) && !empty($post['smtp_password'])) {
             $post['smtp_password'] = Crypto::encrypt($post['smtp_password'], Key::loadFromAsciiSafeString(SECRET_KEY));
-            // we might receive a set but empty smtp_password, so ignore it
-            // unless it is null, then it's because we want to clear it
-        } elseif (empty($post['smtp_password']) && $post['smtp_password'] !== null) {
-            unset($post['smtp_password']);
         }
 
         // loop the array and update config

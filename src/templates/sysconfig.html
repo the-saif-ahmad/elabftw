@@ -111,6 +111,10 @@
             <li><p>{{ 'PHP Version'|trans }}: {{ phpInfos.1 }}</p></li>
             <li><p>{{ 'Largest integer supported'|trans }}: {{ phpInfos.2 }}</p></li>
             <li><p>{{ 'PHP configuration directory'|trans }}: {{ phpInfos.3 }}</p></li>
+            <li><p>{{ 'Maximum file size for uploaded files'|trans }}: {{ phpInfos.4 }}</p></li>
+            {% if phpInfos.5|length > 1 %}
+                <li><p>{{ 'Timezone'|trans }}: {{ phpInfos.5 }}</p></li>
+            {% endif %}
         </ul>
     </div>
 </div>
@@ -445,7 +449,7 @@
                     <p>Single Log Out binding. Default is "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect".</p>
                     <input type='text' name='sloBinding' value='{{ idp.slo_binding }}' />
                     <p>x509cert:</p>
-                    <textarea name='x509'>{{ idp.x509 }}'</textarea>
+                    <textarea name='x509'>{{ idp.x509 }}</textarea>
                     <div class='submitButtonDiv'>
                         <button type="submit" name="Submit" class='button'>{{ 'Save'|trans }}</button>
                     </div>
