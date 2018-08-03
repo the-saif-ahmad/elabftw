@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace Elabftw\Elabftw;
 
+use Monolog\Logger;
+use Monolog\Handler\ErrorLogHandler;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\Session;
@@ -30,8 +32,8 @@ class App
     /** @var Config $Config the config stored in sql */
     public $Config;
 
-    /** @var Logs $Logs instance of Logs */
-    public $Logs;
+    /** @var Logger $Log instance of Logger */
+    public $Log;
 
     /** @var Users $Users instance of Users */
     public $Users;
@@ -60,22 +62,25 @@ class App
     /**
      * Constructor
      *
+     * @param Session $session
      * @param Request $request
      * @param Config $config
-     * @param Logs $logs
+     * @param Logger $log
      */
     public function __construct(
+        Session $session,
         Request $request,
         Config $config,
-        Logs $logs
+        Logger $log
     ) {
         $this->Request = $request;
         $this->Config = $config;
-        $this->Logs = $logs;
-        $this->Users = new Users(null, new Auth($request), new Config());
+        $this->Log = $log;
+        $this->Log->pushHandler(new ErrorLogHandler());
+        $this->Users = new Users(null, new Auth($request, $session), new Config());
 
         $this->Db = Db::getConnection();
-        $this->Session = $this->Request->getSession();
+        $this->Session = $session;
         $this->Twig = $this->getTwig();
 
         $this->ok = $this->Session->getFlashBag()->get('ok', array());

@@ -10,6 +10,7 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use Monolog\Logger;
 use PDOException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\Session;
@@ -19,7 +20,7 @@ use Symfony\Component\HttpFoundation\Session\Session;
  * It loads the config file, connects to the database,
  * includes functions and locale, tries to update the db schema and redirects anonymous visitors.
  */
-require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once \dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 try {
     // CREATE REQUEST OBJECT
@@ -32,7 +33,7 @@ try {
     $Request->setSession($Session);
 
     // LOAD CONFIG.PHP
-    $configFilePath = dirname(__DIR__, 2) . '/config.php';
+    $configFilePath = \dirname(__DIR__, 2) . '/config.php';
     // redirect to install page if the config file is not here
     if (!is_readable($configFilePath)) {
         $url = Tools::getUrlFromRequest($Request) . '/install/index.php';
@@ -49,7 +50,7 @@ try {
     // PDO will throw an exception if the SQL structure is not imported yet
     // so we redirect to the install folder
     try {
-        $App = new App($Request, new Config(), new Logs());
+        $App = new App($Session, $Request, new Config(), new Logger('elabftw'));
     } catch (PDOException $e) {
         $url = Tools::getUrlFromRequest($Request) . '/install/index.php';
         header('Location: ' . $url);
@@ -77,6 +78,16 @@ try {
     //    \____\___|_|  |_.__/ \___|_|   \__,_|___/   //
     //                                                //
     //-*-*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-//
+
+    // autologin as anon if it's allowed by sysadmin
+    if ($App->Config->configArr['open_science']) {
+        // only autologin on selected pages and if we are not authenticated with an account
+        $autoAnon = array('experiments.php', 'database.php', 'search.php');
+        if (\in_array(\basename($Request->getScriptName()), $autoAnon, true) && !$App->Request->getSession()->has('auth')) {
+            $App->Users->Auth->loginAsAnon($App->Config->configArr['open_team'] ?? 1);
+        }
+    }
+
     if ($App->Users->Auth->needAuth() && !$App->Users->Auth->tryAuth()) {
         // KICK USER TO LOGOUT PAGE THAT WILL REDIRECT TO LOGIN PAGE
 

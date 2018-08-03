@@ -21,6 +21,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 require_once 'app/init.inc.php';
 $App->pageTitle = ngettext('Experiment', 'Experiments', 2);
+$Response = new Response();
+$Response->prepare($Request);
 
 try {
     $Entity = new Experiments($App->Users);
@@ -31,7 +33,7 @@ try {
 
     // VIEW
     if ($Request->query->get('mode') === 'view') {
-        $Entity->setId($Request->query->get('id'));
+        $Entity->setId((int) $Request->query->get('id'));
         $Entity->canOrExplode('read');
 
         // LINKS
@@ -48,24 +50,24 @@ try {
 
         // REVISIONS
         $Revisions = new Revisions($Entity);
+        $revNum = $Revisions->readCount();
 
         $template = 'view.html';
 
         $renderArr = array(
             'Ev' => $EntityView,
             'Entity' => $Entity,
-            'Revisions' => $Revisions,
             'Uv' => $UploadsView,
             'linksArr' => $linksArr,
+            'revNum' => $revNum,
             'stepsArr' => $stepsArr,
             'commentsArr' => $commentsArr,
-            'cleanTitle' => Tools::getCleanTitle($Entity->entityData['title']),
             'mode' => 'view'
         );
 
     // EDIT
     } elseif ($Request->query->get('mode') === 'edit') {
-        $Entity->setId($Request->query->get('id'));
+        $Entity->setId((int) $Request->query->get('id'));
         // check permissions
         $Entity->canOrExplode('write');
         // a locked experiment cannot be edited
@@ -75,6 +77,7 @@ try {
 
         // REVISIONS
         $Revisions = new Revisions($Entity);
+        $revNum = $Revisions->readCount();
 
         // UPLOADS
         $UploadsView = new UploadsView($Entity->Uploads);
@@ -93,14 +96,13 @@ try {
 
         $renderArr = array(
             'Entity' => $Entity,
-            'Revisions' => $Revisions,
             'Uv' => $UploadsView,
             'categoryArr' => $categoryArr,
-            'cleanTitle' => Tools::getCleanTitle($Entity->entityData['title']),
             'lang' => Tools::getCalendarLang($App->Users->userData['lang']),
             'linksArr' => $linksArr,
             'maxUploadSize' => Tools::getMaxUploadSize(),
             'mode' => 'edit',
+            'revNum' => $revNum,
             'stepsArr' => $stepsArr,
             'visibilityArr' => $visibilityArr
         );
@@ -142,7 +144,7 @@ try {
         }
 
         // now get pref from the filter-order-sort menu
-        if ($Request->query->has('order')) {
+        if ($Request->query->has('order') && !empty($Request->query->get('order'))) {
             $order = $Request->query->get('order');
         }
 
@@ -172,7 +174,7 @@ try {
         }
 
         // PAGINATION
-        $limit = $App->Users->userData['limit_nb'];
+        $limit = $App->Users->userData['limit_nb'] ?? 15;
         if ($Request->query->has('limit') && Tools::checkId((int) $Request->query->get('limit')) !== false) {
             $limit = $Request->query->get('limit');
         }
@@ -240,9 +242,7 @@ try {
     }
     $template = 'error.html';
     $renderArr = array('error' => $message);
-} finally {
-    $Response = new Response();
-    $Response->prepare($Request);
-    $Response->setContent($App->render($template, $renderArr));
-    $Response->send();
 }
+
+$Response->setContent($App->render($template, $renderArr));
+$Response->send();

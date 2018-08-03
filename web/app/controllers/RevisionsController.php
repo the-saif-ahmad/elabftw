@@ -29,7 +29,7 @@ try {
         throw new Exception('Bad type!');
     }
 
-    $Entity->setId($Request->query->get('item_id'));
+    $Entity->setId((int) $Request->query->get('item_id'));
     $Entity->canOrExplode('write');
     $Revisions = new Revisions($Entity);
 
@@ -46,5 +46,7 @@ try {
         header("Location: ../../" . $Entity->page . ".php?mode=view&id=" . $Request->query->get('item_id'));
     }
 } catch (Exception $e) {
-    $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
+    $App->Log->error('', array(array('userid' => $App->Session->get('userid')), array('exception' => $e)));
+    $Session->getFlashBag()->add('ko', $e->getMessage());
+    header("Location: ../../" . $Entity->page . ".php?mode=view&id=" . $Request->query->get('item_id'));
 }

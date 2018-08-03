@@ -74,17 +74,17 @@ class Config
         $result = array();
 
         // do some data validation for some values
-        /* TODO
+        /* TODO add upload button
         if (isset($post['stampcert'])) {
             $cert_chain = filter_var($post['stampcert'], FILTER_SANITIZE_STRING);
-            if (!is_readable(realpath(ELAB_ROOT . $cert_chain))) {
+            if (!is_readable(realpath($cert_chain))) {
                 throw new Exception('Cannot read provided certificate file.');
             }
         }
          */
 
         if (isset($post['stamppass']) && !empty($post['stamppass'])) {
-            $post['stamppass'] = Crypto::encrypt($post['stamppass'], Key::loadFromAsciiSafeString(SECRET_KEY));
+            $post['stamppass'] = Crypto::encrypt($post['stamppass'], Key::loadFromAsciiSafeString(\SECRET_KEY));
         } elseif (isset($post['stamppass'])) {
             unset($post['stamppass']);
         }
@@ -180,7 +180,9 @@ class Config
             ('local_register', '1'),
             ('anon_users', '0'),
             ('url', NULL),
-            ('schema', :schema);";
+            ('schema', :schema),
+            ('open_science', '0'),
+            ('open_team', NULL);";
 
         $req = $this->Db->prepare($sql);
         $req->bindParam(':schema', $schema);

@@ -10,6 +10,8 @@
  */
 namespace Elabftw\Elabftw;
 
+use Exception;
+
 /**
  * Experiments View
  * @deprecated should be a twig template
@@ -62,6 +64,9 @@ class UploadsView
         // get file extension
         $ext = Tools::getExt($upload['real_name']);
         $filepath = \dirname(__DIR__, 2) . '/uploads/' . $upload['long_name'];
+        if (!\is_readable($filepath)) {
+            return "ERROR: file not found! (" . \substr($filepath, 0, 42) . "…)";
+        }
         $thumbpath = $filepath . '_th.jpg';
 
         // Make thumbnail only if it isn't done already
@@ -91,31 +96,49 @@ class UploadsView
                 "' data-molpath='app/download.php?f=" . $filepath . "'></canvas></div>";
         // if this is something 3Dmol.js can handle
         } elseif (in_array($ext, $molExtensions, true)) {
-            // try to be clever and use cartoon representation for pdb files
+            $molStyle = "stick";
+            // use cartoon representation for pdb files
             if ($ext === 'pdb') {
-                $isProtein = true;
-            } else {
-                $isProtein = false;
+                $molStyle = "cartoon:color=spectrum";
             }
-            $molviewer = new MolViewer($upload['id'], $filepath, $isProtein);
-            $html .= $molviewer->getViewerDiv();
+            // the id of the div with the representation of the molecule
+            $molDivId = '3Dmol_' . $upload['id'];
+
+            // build control dropdown to change the representation style
+            $controls = "<div style='padding-bottom: 5px' class='btn-group'>";
+            $controls .= "<button type='button' class='btn btn-secondary btn-xs dropdown-toggle' data-toggle='dropdown' aria-haspopup='true' aria-expanded='false'>" . _('Style') . " <span class='caret'></span></button>";
+            $controls .= "<ul class='dropdown-menu clickable'>";
+
+            // Build dropdown menu
+            $controls .= "<li class='dropdown-item'><span data-divid='" . $molDivId . "' class='3dmol-cartoon'>" . _('Cartoon (proteins only)') . "</span></li>";
+            $controls .= "<li class='dropdown-item'><span data-divid='" . $molDivId . "' class='3dmol-cross'>" . _('Cross') . "</span/></li>";
+            $controls .= "<li class='dropdown-item'><span data-divid='" . $molDivId . "' class='3dmol-line'>" . _('Line') . "</span/></li>";
+            $controls .= "<li class='dropdown-item'><span data-divid='" . $molDivId . "' class='3dmol-sphere'>" . _('Sphere') . "</span/></li>";
+            $controls .= "<li class='dropdown-item'><span data-divid='" . $molDivId . "' class='3dmol-stick'>" . _('Stick') . "</span/></li>";
+
+            $controls .= "</ul>";
+            $controls .= "</div>";
+            $molDiv = "<div class='row viewer_3Dmoljs' data-href='app/download.php?f=" . $filepath .
+                "' data-style='" . $molStyle . "' data-backgroundcolor='0xffffff' id='" . $molDivId . "'></div>";
+            $html .= $controls . $molDiv;
+
         } else {
             $html .= "<i class='fas " . Tools::getIconFromExtension($ext) . " thumb rounded mx-auto d-block'></i>";
         }
 
         // NOW DISPLAY THE NAME + COMMENT WITH ICONS
-        $html .= "<div class='caption'><i class='fas fa-paperclip mr-1'></i>";
+        $html .= "<div class='caption'><i class='fas fa-download mr-1'></i>";
         $linkUrl = 'app/download.php?f=' . $upload['long_name'] . '&name=' . $upload['real_name'];
         $html .= "<a href='" . $linkUrl . "' rel='noopener'>" . $upload['real_name'] . "</a>";
         $html .= "<span class='smallgray' style='display:inline'> " .
-            Tools::formatBytes(filesize(\dirname(__DIR__, 2) . '/uploads/' . $upload['long_name'])) . "</span><br>";
+            Tools::formatBytes((int) filesize(\dirname(__DIR__, 2) . '/uploads/' . $upload['long_name'])) . "</span><br>";
         // if we are in view mode, we don't show the comment if it's the default text
         // this is to avoid showing 'Click to add a comment' where in fact you can't click to add a comment because
         // your are in view mode
 
         if ($mode === 'edit' || ($upload['comment'] != 'Click to add a comment')) {
             $comment = "<i class='fas fa-comments'></i>
-                        <p class='file-comment editable d-inline' id='filecomment_" . $upload['id'] . "'>" .
+                        <p class='file-comment editable d-inline' data-type='" . $upload['type'] . "' data-itemid='" . $upload['item_id'] . "' id='filecomment_" . $upload['id'] . "'>" .
             $upload['comment'] . "</p>";
             $html .= $comment;
         }

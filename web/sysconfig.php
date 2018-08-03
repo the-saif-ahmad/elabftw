@@ -12,6 +12,7 @@
 namespace Elabftw\Elabftw;
 
 use Exception;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -20,6 +21,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 require_once 'app/init.inc.php';
 $App->pageTitle = _('eLabFTW Configuration');
+$Response = new Response();
+$Response->prepare($Request);
 
 try {
     if ($Session->get('is_sysadmin') != 1) {
@@ -28,11 +31,16 @@ try {
 
     $Idps = new Idps();
     $idpsArr = $Idps->readAll();
-    $logsArr = $App->Logs->readAll();
     $TeamsView = new TeamsView(new Teams($App->Users));
     $teamsArr = $TeamsView->Teams->readAll();
     $usersArr = $App->Users->readAll();
     $ReleaseCheck = new ReleaseCheck($App->Config);
+    try {
+        $ReleaseCheck->getUpdatesIni();
+    } catch (RuntimeException $e) {
+        $App->Log->warning('', array(array('userid' => $App->Session->get('userid')), array('exception' => $e)));
+    }
+
     $langsArr = Tools::getLangsArr();
 
     $phpInfos = array(
@@ -52,19 +60,15 @@ try {
         'fromSysconfig' => true,
         'idpsArr' => $idpsArr,
         'phpInfos' => $phpInfos,
-        'logsArr' => $logsArr,
         'teamsArr' => $teamsArr,
         'usersArr' => $usersArr
     );
 
 } catch (Exception $e) {
-    $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
+    $App->Log->error('', array(array('userid' => $App->Session->get('userid')), array('exception' => $e)));
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
-
-} finally {
-    $Response = new Response();
-    $Response->prepare($Request);
-    $Response->setContent($App->render($template, $renderArr));
-    $Response->send();
 }
+
+$Response->setContent($App->render($template, $renderArr));
+$Response->send();

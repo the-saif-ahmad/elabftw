@@ -14,6 +14,7 @@ namespace Elabftw\Elabftw;
 
 use Exception;
 use Gmagick;
+use PDO;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -39,11 +40,13 @@ class Uploads implements CrudInterface
     /**
      * Constructor
      *
-     * @param AbstractEntity $entity instance of Experiments or Database
+     * @param AbstractEntity|null $entity instance of Experiments or Database
      */
-    public function __construct(AbstractEntity $entity)
+    public function __construct(?AbstractEntity $entity = null)
     {
-        $this->Entity = $entity;
+        if ($entity !== null) {
+            $this->Entity = $entity;
+        }
         $this->Db = Db::getConnection();
         $this->uploadsPath = \dirname(__DIR__, 2) . '/uploads/';
     }
@@ -184,7 +187,7 @@ class Uploads implements CrudInterface
      */
     protected function getCleanName(): string
     {
-        $hash = hash("sha512", \uniqid((string) \mt_rand(), true));
+        $hash = \hash("sha512", \bin2hex(\random_bytes(16)));
         $folder = substr($hash, 0, 2);
         // create a subfolder if it doesn't exist
         $folderPath = $this->uploadsPath . $folder;
@@ -236,8 +239,8 @@ class Uploads implements CrudInterface
         // comment can be edited after upload
         // not i18n friendly because it is used somewhere else (not a valid reason, but for the moment that will do)
         $req->bindValue(':comment', $comment);
-        $req->bindParam(':item_id', $this->Entity->id);
-        $req->bindParam(':userid', $this->Entity->Users->userid);
+        $req->bindParam(':item_id', $this->Entity->id, PDO::PARAM_INT);
+        $req->bindParam(':userid', $this->Entity->Users->userid, PDO::PARAM_INT);
         $req->bindParam(':type', $this->Entity->type);
         $req->bindParam(':hash', $hash);
         $req->bindParam(':hash_algorithm', $this->hashAlgorithm);
@@ -246,18 +249,16 @@ class Uploads implements CrudInterface
     }
 
     /**
-     * Read infos from an upload ID and type
-     * Type can be experiments, timestamp-pdf, items, timestamp-token
+     * Read infos from an upload ID
      *
      * @param int $id id of the uploaded item
      * @return array
      */
     public function readFromId(int $id): array
     {
-        $sql = "SELECT * FROM uploads WHERE id = :id AND type = :type";
+        $sql = "SELECT * FROM uploads WHERE id = :id";
         $req = $this->Db->prepare($sql);
-        $req->bindParam(':id', $id);
-        $req->bindParam(':type', $this->Entity->type);
+        $req->bindParam(':id', $id, PDO::PARAM_INT);
         $req->execute();
 
         return $req->fetch();
@@ -272,7 +273,7 @@ class Uploads implements CrudInterface
     {
         $sql = "SELECT * FROM uploads WHERE item_id = :id AND type = :type";
         $req = $this->Db->prepare($sql);
-        $req->bindParam(':id', $this->Entity->id);
+        $req->bindParam(':id', $this->Entity->id, PDO::PARAM_INT);
         $req->bindParam(':type', $this->Entity->type);
         $req->execute();
 
@@ -280,7 +281,9 @@ class Uploads implements CrudInterface
     }
 
     /**
-     * Update the comment of a file
+     * Update the comment of a file. We also pass the itemid to make sure we update
+     * the comment associated with the item sent to the controller. Because write access
+     * is checked on this value.
      *
      * @param int $id id of the file
      * @param string $comment
@@ -289,9 +292,10 @@ class Uploads implements CrudInterface
     public function updateComment(int $id, string $comment): bool
     {
         // SQL to update single file comment
-        $sql = "UPDATE uploads SET comment = :comment WHERE id = :id";
+        $sql = "UPDATE uploads SET comment = :comment WHERE id = :id AND item_id = :item_id";
         $req = $this->Db->prepare($sql);
-        $req->bindParam(':id', $id);
+        $req->bindParam(':id', $id, PDO::PARAM_INT);
+        $req->bindParam(':item_id', $this->Entity->id, PDO::PARAM_INT);
         $req->bindParam(':comment', $comment);
 
         return $req->execute();
@@ -382,6 +386,9 @@ class Uploads implements CrudInterface
 
             // create a new, "virtual" image
             $virtualImage = imagecreatetruecolor($desiredWidth, $desiredHeight);
+            if ($virtualImage === false) {
+                return false;
+            }
 
             // copy source image at a resized size
             imagecopyresized($virtualImage, $sourceImage, 0, 0, 0, 0, $desiredWidth, $desiredHeight, $width, $height);
@@ -443,7 +450,7 @@ class Uploads implements CrudInterface
         // to avoid someone deleting files saying it's DB whereas it's exp
         $sql = "DELETE FROM uploads WHERE id = :id AND type = :type";
         $req = $this->Db->prepare($sql);
-        $req->bindParam(':id', $id);
+        $req->bindParam(':id', $id, PDO::PARAM_INT);
         $req->bindParam(':type', $this->Entity->type);
 
         return $req->execute();

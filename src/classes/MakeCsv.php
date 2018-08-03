@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace Elabftw\Elabftw;
 
+use RuntimeException;
+
 /**
  * Make a CSV file from a list of id and a type
  */
@@ -98,9 +100,9 @@ class MakeCsv extends AbstractMake
         $this->list[] = array(
             $this->Entity->entityData['id'],
             $this->Entity->entityData['date'],
-            htmlspecialchars_decode($this->Entity->entityData['title'], ENT_QUOTES | ENT_COMPAT),
-            html_entity_decode(strip_tags(htmlspecialchars_decode($this->Entity->entityData['body'], ENT_QUOTES | ENT_COMPAT))),
-            htmlspecialchars_decode($this->Entity->entityData['category'], ENT_QUOTES | ENT_COMPAT),
+            htmlspecialchars_decode((string) $this->Entity->entityData['title'], ENT_QUOTES | ENT_COMPAT),
+            html_entity_decode(strip_tags(htmlspecialchars_decode((string) $this->Entity->entityData['body'], ENT_QUOTES | ENT_COMPAT))),
+            htmlspecialchars_decode((string) $this->Entity->entityData['category'], ENT_QUOTES | ENT_COMPAT),
             $elabidOrRating,
             $this->getUrl()
         );
@@ -114,6 +116,10 @@ class MakeCsv extends AbstractMake
     private function writeCsv(): void
     {
         $fp = fopen($this->filePath, 'w+b');
+        if ($fp === false) {
+            throw new RuntimeException('Error: could not create csv file!');
+        }
+
         // utf8 headers
         fwrite($fp, "\xEF\xBB\xBF");
         foreach ($this->list as $fields) {

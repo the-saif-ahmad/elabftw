@@ -6,9 +6,8 @@
     <form method='post' action='app/controllers/UsersController.php'>
         <input type='hidden' name='usersValidate' value='true' />
         {{ FormKey.getFormkey|raw }}
-        <div class='alert alert-danger'>
-            <span class='glyphicon glyphicon-exclamation-sign' aria-hidden='true'></span>
-            {{ 'There are users waiting for validation of their account:'|trans }}
+        <div class='box'>
+            {{ 'There are users waiting for validation of their account:'|trans|msg('ko', false) }}
             <ul>
             {% for user in unvalidatedUsersArr %}
                 <li>
@@ -35,9 +34,8 @@
         <li class='tabhandle' id='tab4'>{% trans %}Status{% plural 2 %}Status{% endtrans %}</li>
         <li class='tabhandle' id='tab5'>{{ 'Types of items'|trans }}</li>
         <li class='tabhandle' id='tab6'>{{ 'Experiments template'|trans }}</li>
-        <li class='tabhandle' id='tab7'>{{ 'Import CSV'|trans }}</li>
-        <li class='tabhandle' id='tab8'>{{ 'Import ZIP'|trans }}</li>
-        <li class='tabhandle' id='tab9'>{{ 'Tag manager'|trans }}</li><span class='beta'>alpha</span>
+        <li class='tabhandle' id='tab7'>{{ 'Import'|trans }}</li>
+        <li class='tabhandle' id='tab8'>{{ 'Tag manager'|trans }}</li><span class='beta'>new</span>
     </ul>
 </menu>
 
@@ -125,9 +123,8 @@
 
     <!-- DELETE USER -->
     <ul class='list-group'>
-        <li class='list-group-item danger-zone-area'>
-            <p>{{ 'DANGER ZONE'|trans }}</p><hr>
-            <p><strong>{{ 'Delete an account'|trans }}</strong></p>
+        <li class='list-group-item alert-danger mt-3'>
+            <h3 class='font-weight-bold'>{{ 'Delete an account'|trans }}</h3>
             <form action='app/controllers/UsersController.php' method='post'>
                 <!-- form key -->
                 {{ FormKey.getFormkey|raw }}
@@ -242,6 +239,7 @@
             {% for status in statusArr %}
             <li id='status_{{ status.category_id }}' class='list-group-item'>
                 <ul class='list-inline'>
+                    <li class='list-inline-item'><i class='fas fa-sort'></i></li>
                     <li class='list-inline-item'>{{ 'Name'|trans }} <input required type='text' id='statusName_{{ status.category_id }}' value='{{ status.category }}' /></li>
                     <li class='list-inline-item' style='color:#{{ status.color }}'>{{ 'Color'|trans }} <input class='colorpicker' type='text' maxlength='6' id='statusColor_{{ status.category_id }}' value='{{ status.color }}' />
                     </li>
@@ -318,7 +316,7 @@
 
         <ul class='draggable list-group sortable sortable-itemstypes' data-type='items'>
             {% for itemType in itemsTypesArr %}
-            <li class='list-group-item' id='itemstypesOrder_{{ itemType.category_id }}'>{{ itemType.ordering }}
+            <li class='list-group-item' id='itemstypesOrder_{{ itemType.category_id }}'><i class='fas fa-sort'></i>
                 <span style='color:#{{ itemType.color }}'>{{ itemType.category }}</span>
             </li>
             {% endfor %}
@@ -340,25 +338,25 @@
     </div>
 </div>
 
-<!-- TAB 7 IMPORT CSV -->
+<!-- TAB 7 IMPORT -->
 <div class='divhandle' id='tab7div'>
     <div class='box'>
         <h3>{{ 'Import a CSV File'|trans }}</h3>
         <hr>
         <p style='text-align:justify'>
-            {{ "This page will allow you to import a .csv (Excel spreadsheet) file into the database.<br>First you need to open your .xls/.xlsx file in Excel or Libreoffice and save it as .csv.<br>In order to have a good import, the first row should be the column's field names. You can make a tiny import of 3 lines to see if everything works before you import a big file. The third column should be the title."|trans|raw }}
-            <span class='strong'>{{ "You should make a backup of your database before importing thousands of items!"|trans }}</span>
+            {{ "Import a .csv (Excel spreadsheet) file into the database.<br>First you need to open your .xls/.xlsx file in Excel or Libreoffice and save it as .csv.<br>In order to have a good import, the first row should be the column's field names. You can make a tiny import of 3 lines to see if everything works before you import a big file. The third column should be the title."|trans|raw }}
+            <span class='font-weight-bold'>{{ "You should make a backup of your database before importing thousands of items!"|trans }}</span>
         </p>
 
         <label class='block' for='item_selector_csv'>{{ '1. Select a type of item to import to:'|trans }}</label>
-        <select class='clean-form col-3-form item-selector' id='item_selector_csv'>
+        <select class='clean-form col-3-form itemSelector' id='item_selector_csv'>
             <option selected disabled>--------</option>
             {% for itemsType in itemsTypesArr %}
                 <option value='{{ itemsType.category_id }}' name='type'>{{ itemsType.category }}</option>
             {% endfor %}
         </select>
 
-        <div class='import_block'>
+        <div class='importBlock'>
             <form enctype='multipart/form-data' action='app/controllers/ImportController.php' method='post'>
                 <label class='block' for='uploader'>{{ '2. Select a CSV file to import:'|trans }}</label>
                 <input id='uploader' name='file' type='file' accept='.csv' />
@@ -369,20 +367,17 @@
             </form>
         </div>
     </div>
-</div>
 
-<!-- TAB 8 IMPORT ZIP -->
-<div class='divhandle' id='tab8div'>
     <div class='box'>
         <h3>{{ 'Import a ZIP File'|trans }}</h3>
         <hr>
         <p>
-            {{ "This page will allow you to import a .elabftw.zip archive."|trans }}
-            <br><span class='strong'>{{ 'You should make a backup of your database before importing thousands of items!'|trans }}</span>
+            {{ "Import a .elabftw.zip archive."|trans }}
+            <br><span class='font-weight-bold'>{{ 'You should make a backup of your database before importing thousands of items!'|trans }}</span>
         </p>
 
         <label class='block' for='item_selector_zip'>{{ '1. Select where to import:'|trans }}</label>
-        <select class='clean-form col-3-form item-selector' id='item_selector_zip'>
+        <select class='clean-form col-3-form itemSelector' id='item_selector_zip'>
             <option selected disabled>-------</option>
             <option class='disabled-input' disabled>Import items</option>
             {% for itemsType in itemsTypesArr %}
@@ -393,8 +388,8 @@
             {% for user in usersArr %}
                 <option value='{{ user.userid }}' name='type'>{{ user.fullname|raw }}</option>
             {% endfor %}
-        </select><br>
-        <div class='import_block'>
+        </select>
+        <div class='importBlock'>
             <form enctype='multipart/form-data' action='app/controllers/ImportController.php' method='post'>
                 <label class='block' for='uploader'>{{ '2. Select a ZIP file to import:'|trans }}</label>
                 <input id='uploader' name='file' type='file' accept='.elabftw.zip' />
@@ -407,11 +402,11 @@
     </div>
 </div>
 
-<!-- TAB 9 TAG MANAGER -->
-<div class='divhandle' id='tab9div'>
+<!-- TAB 8 TAG MANAGER -->
+<div class='divhandle' id='tab8div'>
     <div class='box'>
         <h3>{{ 'Manage tags of the team'|trans }}</h3>
-        <p>{{ 'From here you can edit or delete the tags for your team. Click the tag to edit it.' }}</p>
+        <p>{{ 'From here you can edit or delete the tags for your team. Click the tag to edit it. Then click the deduplicate button to merge similar tags.' }}</p>
         <div id='tag_manager'>
         {% for tag in tagsArr %}
         <p><i class='fas fa-clone clickable tagDeduplicate mr-1' title='Deduplicate' data-tag='{{ tag.tag }}'></i><i class='fas fa-times clickable tagDestroy mr-1' title='Delete' data-tagid='{{ tag.id }}' data-confirm="{{ 'Delete this?'|trans }}" /></i> <span class='tag-editable editable' data-tag='{{ tag.tag }}'>{{ tag.tag|raw }}</span></p>
@@ -422,12 +417,6 @@
 
 <script src='app/js/tinymce.bundle.js?v={{ v }}'></script>
 <script src='app/js/admin.min.js?v={{ v }}'></script>
-<!--
-<script src='app/js/src/admin.js?v={{ v }}'></script>
--->
 <script src='app/js/tabs.min.js?v={{ v }}'></script>
-<!--
-<script src='app/js/src/tags.js?v={{ v }}'></script>
--->
 <script src='app/js/tags.min.js?v={{ v }}'></script>
 {% endblock body %}

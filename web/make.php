@@ -12,6 +12,8 @@ namespace Elabftw\Elabftw;
 
 use Exception;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Create a csv, zip or pdf file
@@ -34,11 +36,27 @@ try {
             break;
 
         case 'zip':
-            $Make = new MakeZip($Entity, $Request->query->get('id'));
+            // use experimental stream zip feature
+            if ($Request->cookies->has('stream_zip')) {
+                ini_set('max_execution_time', 300);
+                $Make = new MakeStreamZip($Entity, $Request->query->get('id'));
+                $Response = new StreamedResponse();
+                $Response->headers->set('X-Accel-Buffering', 'no');
+                $Response->headers->set('Content-Type', 'application/zip');
+                $Response->headers->set('Cache-Control', '');
+                $contentDisposition = $Response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, 'elabftw-export.zip');
+                $Response->headers->set('Content-Disposition', $contentDisposition);
+                $Response->setCallback(function() use($Make) {
+                    $Make->output();
+                });
+                $Response->send();
+            } else {
+                $Make = new MakeZip($Entity, $Request->query->get('id'));
+            }
             break;
 
         case 'pdf':
-            $Entity->setId($Request->query->get('id'));
+            $Entity->setId((int) $Request->query->get('id'));
             $Entity->canOrExplode('read');
             $Make = new MakePdf($Entity);
             $Make->output();
@@ -49,7 +67,7 @@ try {
     }
 
     // the pdf is shown directly, but for csv or zip we want a download page
-    if (\in_array($Request->query->get('what'), array('csv', 'zip'), true)) {
+    if (\in_array($Request->query->get('what'), array('csv', 'zip'), true) && !$Request->cookies->has('stream_zip')) {
 
         $filesize = Tools::formatBytes(filesize($Make->filePath));
 

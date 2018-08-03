@@ -12,7 +12,7 @@
 
     $(document).ready(function() {
         // add the title in the page name (see #324)
-        document.title = $('#entityInfos').data('title');
+        document.title = $('.title_view').text() + ' - eLabFTW';
 
         var type = $('#entityInfos').data('type');
         var id = $('#entityInfos').data('id');
@@ -153,6 +153,8 @@
         $('#confirmTimestampDiv').hide();
 
         // ACTIVATE FANCYBOX
+        // doesn't work if the src js is loaded
+        // because only the .min.js has the fancybox lib bundled
         $('[data-fancybox]').fancybox();
 
     });

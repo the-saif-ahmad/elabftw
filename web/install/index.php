@@ -23,6 +23,9 @@ session_start();
 require_once \dirname(__DIR__, 2) . '/vendor/autoload.php';
 $configFilePath = \dirname(__DIR__, 2) . '/config.php';
 $errflag = false;
+// we disable errors to avoid having notice stopping the redirect
+error_reporting(E_ERROR);
+
 
 try {
     // create Request object
@@ -47,7 +50,7 @@ try {
         $sql = 'SELECT COUNT(DISTINCT `table_name`) AS tablesCount
             FROM `information_schema`.`columns` WHERE `table_schema` = :db_name';
         $req = $Db->prepare($sql);
-        $req->bindValue(':db_name', DB_NAME);
+        $req->bindValue(':db_name', \DB_NAME);
         $req->execute();
         $res = $req->fetch();
         if ($res['tablesCount'] < 2) {

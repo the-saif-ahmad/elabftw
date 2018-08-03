@@ -15,6 +15,9 @@ namespace Elabftw\Elabftw;
 use Defuse\Crypto\Crypto;
 use Defuse\Crypto\Key;
 use Exception;
+use Monolog\Logger;
+use Monolog\Handler\ErrorLogHandler;
+use PDO;
 use Swift_Mailer;
 use Swift_Message;
 use Swift_SendmailTransport;
@@ -53,7 +56,7 @@ class Email
 
         $sql = "SELECT email FROM users WHERE (`usergroup` = 1 OR `usergroup` = 2) AND `team` = :team";
         $req = $Db->prepare($sql);
-        $req->bindParam(':team', $team);
+        $req->bindParam(':team', $team, PDO::PARAM_INT);
         $req->execute();
 
         while ($email = $req->fetchColumn()) {
@@ -95,7 +98,7 @@ class Email
                 $transport->setUsername($this->Config->configArr['smtp_username'])
                 ->setPassword(Crypto::decrypt(
                     $this->Config->configArr['smtp_password'],
-                    Key::loadFromAsciiSafeString(SECRET_KEY)
+                    Key::loadFromAsciiSafeString(\SECRET_KEY)
                 ));
             }
         } else {
@@ -171,16 +174,13 @@ class Email
      *
      * @param int $team
      * @throws Exception
+     * @return void
      */
-    public function alertAdmin($team)
+    public function alertAdmin($team): void
     {
         if ($this->Config->configArr['mail_from'] === 'notconfigured@example.com') {
-            return null;
+            return;
         }
-        // get url
-        $Request = Request::createFromGlobals();
-        $url = Tools::getUrl($Request) . '/admin.php';
-
         // Create the message
         $footer = "\n\n~~~\nSent from eLabFTW https://www.elabftw.net\n";
         $message = (new Swift_Message())
@@ -191,15 +191,17 @@ class Email
         // Set the To
         ->setTo($this->getAdminEmail($team))
         // Give it a body
-        ->setBody(_('Hi. A new user registered on elabftw. Head to the admin panel to validate the account: ') . $url . $footer);
+        ->setBody(_('Hi. A new user registered on elabftw. Head to the admin panel to validate the account.') . $footer);
         // generate Swift_Mailer instance
         $mailer = $this->getMailer();
         // SEND EMAIL
         try {
             $mailer->send($message);
         } catch (Exception $e) {
-            $Logs = new Logs();
-            $Logs->create('Error', 'smtp', $e->getMessage());
+            // FIXME should be injected
+            $Log = new Logger('elabftw');
+            $Log->pushHandler(new ErrorLogHandler());
+            $Log->error('Error sending email', array('exception' => $e));
             throw new Exception(_('Could not send email to inform admin. Error was logged. Contact an admin directly to validate your account.'));
         }
     }
@@ -207,12 +209,13 @@ class Email
     /**
      * Alert a user that they are validated
      *
-     * @param string|null $email
+     * @param string $email email of the newly validated user
+     * @return void
      */
-    public function alertUserIsValidated($email)
+    public function alertUserIsValidated($email): void
     {
         if ($this->Config->configArr['mail_from'] === 'notconfigured@example.com') {
-            return null;
+            return;
         }
 
         // now let's get the URL so we can have a nice link in the email

@@ -23,7 +23,7 @@ final class Db
     /** @var PDO $connection Connection to PDO */
     private $connection;
 
-    /** @var Db $instance store the single instance of the class */
+    /** @var Db|null $instance store the single instance of the class */
     private static $instance;
 
     /** @var int $nq total number of queries */
@@ -45,10 +45,10 @@ final class Db
         $pdo_options[PDO::ATTR_DEFAULT_FETCH_MODE] = PDO::FETCH_ASSOC;
 
         $this->connection = new PDO(
-            'mysql:host=' . DB_HOST . ';dbname=' .
-            DB_NAME,
-            DB_USER,
-            DB_PASSWORD,
+            'mysql:host=' . \DB_HOST . ';dbname=' .
+            \DB_NAME,
+            \DB_USER,
+            \DB_PASSWORD,
             $pdo_options
         );
     }

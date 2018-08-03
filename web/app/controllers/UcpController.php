@@ -8,6 +8,8 @@
  * @license AGPL-3.0
  * @package elabftw
  */
+declare(strict_types=1);
+
 namespace Elabftw\Elabftw;
 
 use Exception;
@@ -18,11 +20,10 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  * Deal with ajax requests sent from the user control panel
  */
 require_once \dirname(__DIR__) . '/init.inc.php';
+$tab = 1;
+$redirect = false;
 
 try {
-    $tab = 1;
-    $redirect = false;
-
     // TAB 1 : PREFERENCES
     if ($Request->request->has('lang')) {
         $redirect = true;
@@ -49,7 +50,7 @@ try {
 
     // TAB 3 : EXPERIMENTS TEMPLATES
 
-    // DUPLICATE TPL
+    // DUPLICATE/IMPORT TPL
     if ($Request->request->has('import_tpl')) {
         $Response = new JsonResponse();
         $Templates = new Templates($App->Users, $Request->request->get('id'));
@@ -84,7 +85,7 @@ try {
         $tpl_body = Tools::checkBody($Request->request->get('new_tpl_body'));
 
         $Templates = new Templates($App->Users);
-        if (!$Templates->create($tpl_name, $tpl_body, $Session->get('userid'))) {
+        if (!$Templates->create($tpl_name, $tpl_body, (int) $Session->get('userid'))) {
             throw new Exception(Tools::error());
         }
         $Session->getFlashBag()->add('ok', _('Experiment template successfully added.'));
@@ -97,7 +98,7 @@ try {
 
         $Templates = new Templates($App->Users);
         $Templates->updateTpl(
-            $Request->request->get('tpl_id')[0],
+            (int) $Request->request->get('tpl_id')[0],
             $Request->request->get('tpl_name')[0],
             $Request->request->get('tpl_body')[0]
         );
@@ -127,7 +128,7 @@ try {
     }
 
 } catch (Exception $e) {
-    $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
+    $App->Log->error('', array(array('userid' => $App->Session->get('userid')), array('exception' => $e)));
     $Session->getFlashBag()->add('ko', $e->getMessage());
 } finally {
     if ($redirect) {

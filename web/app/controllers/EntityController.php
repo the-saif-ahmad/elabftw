@@ -20,10 +20,11 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  */
 require_once \dirname(__DIR__) . '/init.inc.php';
 
+$Response = new JsonResponse();
+
 try {
-    $Response = new JsonResponse();
     // id of the item (experiment or database item)
-    $id = 1;
+    $id = 0;
 
     if ($Request->request->has('id')) {
         $id = $Request->request->get('id');
@@ -201,12 +202,12 @@ try {
             }
 
             $id_arr = \explode('_', $Request->request->get('comment_id'));
-            if (Tools::checkId($id_arr[1]) === false) {
+            if (Tools::checkId((int) $id_arr[1]) === false) {
                 throw new Exception(_('The id parameter is invalid'));
             }
-            $id = $id_arr[1];
+            $comment_id = $id_arr[1];
 
-            if ($Entity->Uploads->updateComment($id, $comment)) {
+            if ($Entity->Uploads->updateComment((int) $comment_id, $comment)) {
                 $Response->setData(array(
                     'res' => true,
                     'msg' => _('Saved')
@@ -329,14 +330,12 @@ try {
         }
     }
 
-    $Response->send();
-
 } catch (Exception $e) {
-    $App->Logs->create('Error', $Session->get('userid') ?? 'anon', $e->getMessage());
+    $App->Log->error('', array(array('userid' => $App->Session->get('userid') ?? 'anon'), array('exception' => $e)));
     $Response = new JsonResponse();
     $Response->setData(array(
         'res' => false,
         'msg' => $e->getMessage()
     ));
-    $Response->send();
 }
+$Response->send();

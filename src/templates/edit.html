@@ -103,7 +103,7 @@
             {% endif %}
 
             {% if Entity.Users.userData.use_markdown %}
-                <textarea id='body_area' class='markdown-textarea' data-language='{{ lang }}' name='body' rows='15' cols='80'>{{ Entity.entityData.body|raw }}</textarea>
+                <textarea id='body_area' class='markdown-textarea' data-language='{{ lang }}' name='body'>{{ Entity.entityData.body|raw }}</textarea>
             {% else %}
                 <textarea id='body_area' class='mceditable' name='body' rows='15' cols='80'>{{ Entity.entityData.body|raw }}</textarea>
             {% endif %}
@@ -114,7 +114,12 @@
         </form>
 
     <!-- REVISIONS -->
-    {{ Revisions.showCount|raw }}
+    {% if revNum > 0 %}
+        <span class='align_right'><i class='fas fa-history mr-1'></i>
+            <a href='revisions.php?type={{ Entity.type }}&item_id={{ Entity.id }}'>{{ revNum }}
+                {% trans %}revision available{% plural revNum %}revisions available{% endtrans %}</a>
+        </span>
+    {% endif %}
 
     {% if Entity.type == 'experiments' %}
     <div class='row justify-content-around mt-4'>
@@ -228,7 +233,6 @@
     data-type='{{ Entity.type }}'
     data-id='{{ Entity.id }}'
     data-locale='{{ App.Users.userData.lang }}'
-    data-title='{{ cleanTitle }}'
     data-confirm="{{ 'Delete this?'|trans }}"
     data-untitled="{{ 'Untitled'|trans }}"
     data-lang="{{ Entity.Users.userData.lang }}">
@@ -238,5 +242,5 @@
     data-submit='{{ Entity.Users.userData.sc_submit }}'>
 </div>
 <script src='app/js/edit.min.js?v={{ v }}'></script>
-<script src='app/js/src/tags.js'></script>
+<script src='app/js/tags.min.js'></script>
 {% endblock body %}

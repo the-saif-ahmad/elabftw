@@ -8,12 +8,13 @@
  * @license AGPL-3.0
  * @package elabftw
  */
+declare(strict_types=1);
 
 namespace Elabftw\Elabftw;
 
 use Exception;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Experiments
@@ -21,20 +22,24 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  */
 require_once \dirname(__DIR__) . '/init.inc.php';
 
+$Response = new JsonResponse();
+
 try {
+
     if ($App->Session->has('anon')) {
         throw new Exception(Tools::error(true));
     }
 
     $Entity = new Experiments($App->Users);
     if ($Request->request->has('id')) {
-        $Entity->setId($Request->request->get('id'));
+        $Entity->setId((int) $Request->request->get('id'));
     }
 
-    // CREATE
+    // CREATE EXPERIMENT
+    // the only get request with redirect, rest is post called from js with json output
     if ($Request->query->has('create')) {
         if ($Request->query->has('tpl')) {
-            $id = $Entity->create($Request->query->get('tpl'));
+            $id = $Entity->create((int) $Request->query->get('tpl'));
         } else {
             $id = $Entity->create();
         }
@@ -43,7 +48,6 @@ try {
 
     // CREATE STEP
     if ($Request->request->has('createStep')) {
-        $Response = new JsonResponse();
         $Entity->canOrExplode('write');
 
         if ($Entity->Steps->create($Request->request->get('body'))) {
@@ -61,10 +65,9 @@ try {
 
     // FINISH STEP
     if ($Request->request->has('finishStep')) {
-        $Response = new JsonResponse();
         $Entity->canOrExplode('write');
 
-        if ($Entity->Steps->finish($Request->request->get('stepId'))) {
+        if ($Entity->Steps->finish((int) $Request->request->get('stepId'))) {
             $Response->setData(array(
                 'res' => true,
                 'msg' => _('Saved')
@@ -79,10 +82,9 @@ try {
 
     // DESTROY STEP
     if ($Request->request->has('destroyStep')) {
-        $Response = new JsonResponse();
         $Entity->canOrExplode('write');
 
-        if ($Entity->Steps->destroy($Request->request->get('stepId'))) {
+        if ($Entity->Steps->destroy((int) $Request->request->get('stepId'))) {
             $Response->setData(array(
                 'res' => true,
                 'msg' => _('Step deleted successfully')
@@ -97,10 +99,9 @@ try {
 
     // CREATE LINK
     if ($Request->request->has('createLink')) {
-        $Response = new JsonResponse();
         $Entity->canOrExplode('write');
 
-        if ($Entity->Links->create($Request->request->get('linkId'))) {
+        if ($Entity->Links->create((int) $Request->request->get('linkId'))) {
             $Response->setData(array(
                 'res' => true,
                 'msg' => _('Saved')
@@ -115,10 +116,9 @@ try {
 
     // DESTROY LINK
     if ($Request->request->has('destroyLink')) {
-        $Response = new JsonResponse();
         $Entity->canOrExplode('write');
 
-        if ($Entity->Links->destroy($Request->request->get('linkId'))) {
+        if ($Entity->Links->destroy((int) $Request->request->get('linkId'))) {
             $Response->setData(array(
                 'res' => true,
                 'msg' => _('Link deleted successfully')
@@ -133,14 +133,12 @@ try {
 
     // GET LINK LIST
     if ($Request->query->has('term')) {
-        $Response = new JsonResponse();
         $Response->setData($Entity->getLinkList($Request->query->get('term')));
     }
 
     // TIMESTAMP
     if ($Request->request->has('timestamp')) {
         try {
-            $Response = new JsonResponse();
             $Entity->canOrExplode('write');
             if ($Entity->isTimestampable()) {
                 $TrustedTimestamps = new TrustedTimestamps(new Config(), new Teams($App->Users), $Entity);
@@ -156,7 +154,7 @@ try {
                 ));
             }
         } catch (Exception $e) {
-            $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
+            $App->Log->error('', array(array('userid' => $App->Session->get('userid')), array('exception' => $e)));
             $Response->setData(array(
                 'res' => false,
                 'msg' => $e->getMessage()
@@ -166,7 +164,6 @@ try {
 
     // DESTROY
     if ($Request->request->has('destroy')) {
-        $Response = new JsonResponse();
         $Entity->canOrExplode('write');
 
         $Teams = new Teams($App->Users);
@@ -193,20 +190,20 @@ try {
     }
 
     // DECODE ASN1 TOKEN
-    if ($Request->request->has('asn1') && is_readable(ELAB_ROOT . "uploads/" . $Request->request->get('asn1'))) {
-        $Response = new JsonResponse();
+    if ($Request->request->has('asn1') && \is_readable(\dirname(__DIR__, 3) . "/uploads/" . $Request->request->get('asn1'))) {
         $TrustedTimestamps = new TrustedTimestamps(new Config(), new Teams($App->Users), $Entity);
 
         $Response->setData(array(
             'res' => true,
-            'msg' => $TrustedTimestamps->decodeAsn1($_POST['asn1'])
+            'msg' => $TrustedTimestamps->decodeAsn1($Request->request->get('asn1'))
         ));
     }
 
-    $Response->send();
 
 } catch (Exception $e) {
-    $App->Logs->create('Error', $Session->get('userid'), $e->getMessage());
-    $Session->getFlashBag()->add('ko', Tools::error());
-    header('Location: ../../experiments.php');
+    $App->Log->error('', array(array('userid' => $App->Session->get('userid')), array('exception' => $e)));
+    $Session->getFlashBag()->add('ko', $e->getMessage());
+    $Response = new RedirectResponse("../../experiments.php");
 }
+
+$Response->send();

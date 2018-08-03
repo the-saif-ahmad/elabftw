@@ -48,10 +48,11 @@ try {
         }
 
         // the key (token) is the encrypted user's mail address
-        $key = Crypto::encrypt($email, Key::loadFromAsciiSafeString(SECRET_KEY));
+        $key = Crypto::encrypt($email, Key::loadFromAsciiSafeString(\SECRET_KEY));
 
         // the deadline is the encrypted epoch of now +1 hour
-        $deadline = Crypto::encrypt(time() + 3600, Key::loadFromAsciiSafeString(SECRET_KEY));
+        $deadline = \time() + 3600;
+        $deadline = Crypto::encrypt((string) $deadline, Key::loadFromAsciiSafeString(\SECRET_KEY));
 
         // build the reset link
         $resetLink = Tools::getUrl($Request) . '/change-pass.php';
@@ -85,7 +86,7 @@ try {
     if ($Request->request->has('password') &&
         $Request->request->get('password') === $Request->request->get('cpassword')) {
 
-        $App->Users->setId($Request->request->get('userid'));
+        $App->Users->setId((int) $Request->request->get('userid'));
 
         // Validate key
         if ($App->Users->userData['email'] != Crypto::decrypt($Request->request->get('key'), Key::loadFromAsciiSafeString(SECRET_KEY))) {
@@ -104,13 +105,13 @@ try {
             throw new Exception('Error updating password');
         }
 
-        $App->Logs->create('Info', $App->Users->userData['email'], 'Password was changed for this user.');
+        $App->Log->info('Password was changed for this user', array('userid' => $App->Session->get('userid')));
         $Session->getFlashBag()->add('ok', _('New password inserted. You can now login.'));
     }
 
 } catch (Exception $e) {
     // log the error
-    $App->Logs->create('Error', $Request->server->get('REMOTE_ADDR'), $e->getMessage());
+    $App->Log->warning('Reset password failed attempt', array(array('ip' => $Request->server->get('REMOTE_ADDR')), array('exception' => $e)));
     $Session->getFlashBag()->add('ko', $e->getMessage());
 } finally {
     $Response = new RedirectResponse("../../login.php");

@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Elabftw\Elabftw;
 
 use GuzzleHttp\Exception\RequestException;
+use RuntimeException;
 
 /**
  * Use this to check for latest version
@@ -42,7 +43,7 @@ class ReleaseCheck
      * UPDATE THIS AFTER RELEASING
      * ///////////////////////////
      */
-    public const INSTALLED_VERSION = '2.0.0-alpha1';
+    public const INSTALLED_VERSION = '2.0.0-beta';
 
     /**
      * Fetch the update info on object creation
@@ -86,7 +87,11 @@ class ReleaseCheck
      */
     private function validateVersion(): int
     {
-        return preg_match('/[0-99]+\.[0-99]+\.[0-99]+.*/', $this->version);
+        $res = preg_match('/[0-99]+\.[0-99]+\.[0-99]+.*/', $this->version);
+        if ($res === false) {
+            throw new RuntimeException('Could not parse version!');
+        }
+        return $res;
     }
 
     /**
@@ -110,6 +115,9 @@ class ReleaseCheck
 
         // read the response
         $versions = parse_ini_string((string) $response->getBody(), true);
+        if ($versions === false) {
+            return false;
+        }
         // get the latest version
         $this->version = array_keys($versions)[0];
         $this->releaseDate = $versions[$this->version]['date'];
@@ -118,7 +126,7 @@ class ReleaseCheck
             return false;
         }
         $this->success = true;
-        return true;
+        return $this->success;
     }
 
     /**

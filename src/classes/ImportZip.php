@@ -14,6 +14,7 @@ namespace Elabftw\Elabftw;
 
 use Exception;
 use FilesystemIterator;
+use PDO;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
@@ -51,9 +52,8 @@ class ImportZip extends AbstractImport
     {
         parent::__construct($users, $request);
 
-        $this->target = $this->getTarget();
         // this is where we will extract the zip
-        $this->tmpPath = \dirname(__DIR__, 2) . '/cache/elab/' . \uniqid((string) \mt_rand(), true);
+        $this->tmpPath = \dirname(__DIR__, 2) . '/cache/elab/' . \bin2hex(\random_bytes(16));
         if (!is_dir($this->tmpPath) && !mkdir($this->tmpPath, 0700, true) && !is_dir($this->tmpPath)) {
             throw new RuntimeException('Unable to create temporary folder! (' . $this->tmpPath . ')');
         }
@@ -72,6 +72,9 @@ class ImportZip extends AbstractImport
     {
         $file = $this->tmpPath . "/.elabftw.json";
         $content = file_get_contents($file);
+        if ($content === false) {
+            throw new RuntimeException('Unable to read the json file!');
+        }
         $this->json = json_decode($content, true);
         if (isset($this->json[0]['elabid'])) {
             $this->type = 'experiments';
@@ -87,7 +90,7 @@ class ImportZip extends AbstractImport
     {
         $sql = 'SELECT id FROM status WHERE team = :team AND is_default = 1';
         $req = $this->Db->prepare($sql);
-        $req->bindParam(':team', $this->Users->userData['team']);
+        $req->bindParam(':team', $this->Users->userData['team'], PDO::PARAM_INT);
         $req->execute();
         return (int) $req->fetchColumn();
     }
@@ -109,17 +112,17 @@ class ImportZip extends AbstractImport
                 VALUES(:team, :title, :date, :body, :userid, :visibility, :status, :elabid)";
         }
         $req = $this->Db->prepare($sql);
-        $req->bindParam(':team', $this->Users->userData['team']);
+        $req->bindParam(':team', $this->Users->userData['team'], PDO::PARAM_INT);
         $req->bindParam(':title', $item['title']);
         $req->bindParam(':date', $item['date']);
         $req->bindParam(':body', $item['body']);
         if ($this->type === 'items') {
-            $req->bindParam(':userid', $this->Users->userid);
-            $req->bindParam(':type', $this->target);
+            $req->bindParam(':userid', $this->Users->userid, PDO::PARAM_INT);
+            $req->bindParam(':type', $this->target, PDO::PARAM_INT);
         } else {
             $req->bindValue(':visibility', 'team');
             $req->bindValue(':status', $this->getDefaultStatus());
-            $req->bindParam(':userid', $this->target);
+            $req->bindParam(':userid', $this->target, PDO::PARAM_INT);
             $req->bindParam(':elabid', $item['elabid']);
         }
 
@@ -137,7 +140,7 @@ class ImportZip extends AbstractImport
             $this->Entity = new Database($this->Users, $newItemId);
         }
 
-        if (\mb_strlen($item['tags']) > 1) {
+        if (\mb_strlen($item['tags'] ?? '') > 1) {
             $this->tagsDbInsert($item['tags']);
         }
     }
@@ -213,7 +216,7 @@ class ImportZip extends AbstractImport
         $di = new RecursiveDirectoryIterator($this->tmpPath, FilesystemIterator::SKIP_DOTS);
         $ri = new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST);
         foreach ($ri as $file) {
-            $file->isDir() ? rmdir($file) : unlink($file);
+            $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
         }
         // and remove folder itself
         rmdir($this->tmpPath);

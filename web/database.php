@@ -20,6 +20,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 require_once 'app/init.inc.php';
 $App->pageTitle = _('Database');
+$Response = new Response();
+$Response->prepare($Request);
 
 try {
 
@@ -34,10 +36,12 @@ try {
     if ($Request->query->get('mode') === 'view') {
 
         // set id
-        $Entity->setId($Request->query->get('id'));
+        $Entity->setId((int) $Request->query->get('id'));
         // check permissions
         $Entity->canOrExplode('read');
         $UploadsView = new UploadsView($Entity->Uploads);
+        $Revisions = new Revisions($Entity);
+        $revNum = $Revisions->readCount();
         // the mode parameter is for the uploads tpl
         $template = 'view.html';
 
@@ -48,14 +52,15 @@ try {
             'Entity' => $Entity,
             'Uv' => $UploadsView,
             'commentsArr' => $commentsArr,
-            'mode' => 'view'
+            'mode' => 'view',
+            'revNum' => $revNum
         );
 
     // EDIT
     } elseif ($Request->query->get('mode') === 'edit') {
 
         // set id
-        $Entity->setId($Request->query->get('id'));
+        $Entity->setId((int) $Request->query->get('id'));
         // check permissions
         $Entity->canOrExplode('write');
         // a locked item cannot be edited
@@ -66,6 +71,7 @@ try {
         $ItemsTypes = new ItemsTypes($Entity->Users);
         $categoryArr = $ItemsTypes->readAll();
         $Revisions = new Revisions($Entity);
+        $revNum = $Revisions->readCount();
         $UploadsView = new UploadsView($Entity->Uploads);
         $TeamGroups = new TeamGroups($Entity->Users);
         $visibilityArr = $TeamGroups->getVisibilityList();
@@ -75,11 +81,11 @@ try {
         $renderArr = array(
             'Entity' => $Entity,
             'Categories' => $ItemsTypes,
-            'Revisions' => $Revisions,
             'Uv' => $UploadsView,
             'categoryArr' => $categoryArr,
             'mode' => 'edit',
             'maxUploadSize' => Tools::getMaxUploadSize(),
+            'revNum' => $revNum,
             'visibilityArr' => $visibilityArr
         );
 
@@ -190,10 +196,7 @@ try {
 } catch (Exception $e) {
     $template = 'error.html';
     $renderArr = array('error' => $e->getMessage());
-
-} finally {
-    $Response = new Response();
-    $Response->prepare($Request);
-    $Response->setContent($App->render($template, $renderArr));
-    $Response->send();
 }
+
+$Response->setContent($App->render($template, $renderArr));
+$Response->send();

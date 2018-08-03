@@ -136,21 +136,6 @@
             });
         });
 
-        // LOGS
-        $(document).on('click', '#logsDestroyButton', function() {
-            document.getElementById('logsDestroyButton').disabled = true;
-            $.post('app/controllers/SysconfigController.php', {
-                logsDestroy: true
-            }).done(function(data) {
-                if (data.res) {
-                    notif(data.msg, 'ok');
-                    $('#logsDiv').load('sysconfig.php #logsDiv');
-                } else {
-                    notif(data.msg, 'ko');
-                }
-            });
-        });
-
         $(document).on('click', '#editSmtpPassword', function() {
             $('#hidden_smtp_password').toggle();
         });
@@ -163,5 +148,24 @@
         }
         // honor already saved mail_method setting and hide unused options accordingly
         toggleMailMethod($('#selectMailMethod').val());
+
+        $(document).on('click', '.idpsDestroy', function() {
+            const elem = $(this);
+            if (confirm($(this).data('confirm'))) {
+                $.post('app/controllers/IdpsController.php', {
+                    idpsDestroy: true,
+                    id: $(this).data('id'),
+                }).done(function(data) {
+                    if (data.res) {
+                        notif(data.msg, 'ok');
+                        console.log(elem);
+                        console.log(elem.closest('div'));
+                        elem.closest('div').hide(600);
+                    } else {
+                        notif(data.msg, 'ko');
+                    }
+                });
+            }
+        });
     });
 }());

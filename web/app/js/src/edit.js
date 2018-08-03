@@ -38,7 +38,7 @@
                 if (this.getUploadingFiles().length === 0 && this.getQueuedFiles().length === 0) {
                     $('#filesdiv').load('?mode=edit&id=' + $('#entityInfos').data('id') + ' #filesdiv', function() {
                         // make the comment zone editable (fix issue #54)
-                        makeEditableFileComment($('#entityInfos').data('type'), $('#entityInfos').data('id'));
+                        makeEditableFileComment();
                     });
                 }
             });
@@ -47,7 +47,7 @@
 
     $(document).ready(function() {
         // add the title in the page name (see #324)
-        document.title = $('#entityInfos').data('title');
+        document.title = $('#title_input').val() + ' - eLabFTW';
 
         let type = $('#entityInfos').data('type');
         let id = $('#entityInfos').data('id');
@@ -133,7 +133,7 @@
 
             create() {
                 // get link
-                let link = decodeURIComponent($('#linkinput').val());
+                let link = $('#linkinput').val();
                 // fix for user pressing enter with no input
                 if (link.length > 0) {
                     // parseint will get the id, and not the rest (in case there is number in title)
@@ -195,32 +195,25 @@
 
         class Step {
 
-            // the argument here is the event (needed to detect which key is pressed)
-            create(e) {
-                let keynum;
-                if (e.which) {
-                    keynum = e.which;
-                }
-                if (keynum == 13) { // if the key that was pressed was Enter (ascii code 13)
-                    // get body
-                    let body = decodeURIComponent($('#stepinput').val());
-                    // fix for user pressing enter with no input
-                    if (body.length > 0) {
-                        $.post(controller, {
-                            createStep: true,
-                            id: id,
-                            body: body
-                        })
-                        // reload the step list
-                        .done(function() {
-                            $("#steps_div").load("experiments.php?mode=edit&id=" + id + " #steps_div", function() {
-                            relativeMoment();
-                        });
-                            // clear input field
-                            $("#stepinput").val("");
-                        });
-                    } // end if input < 0
-                } // end if key is enter
+            create() {
+                // get body
+                let body = $('#stepinput').val();
+                // fix for user pressing enter with no input
+                if (body.length > 0) {
+                    $.post(controller, {
+                        createStep: true,
+                        id: id,
+                        body: body
+                    })
+                    // reload the step list
+                    .done(function() {
+                        $("#steps_div").load("experiments.php?mode=edit&id=" + id + " #steps_div", function() {
+                        relativeMoment();
+                    });
+                        // clear input field
+                        $("#stepinput").val("");
+                    });
+                } // end if input < 0
             }
 
             finish(stepId) {
@@ -270,8 +263,11 @@
         const StepC = new Step();
 
         // CREATE
-        $('#stepinput').keypress(function (e) {
-            StepC.create(e);
+        $(document).on('keypress blur', '#stepinput', function (e) {
+            // Enter is ascii code 13
+            if (e.which === 13 || e.type === 'focusout') {
+                StepC.create();
+            }
         });
 
         // STEP IS DONE
@@ -293,17 +289,12 @@
         const LinkC = new Link();
 
         // CREATE
-        // listen keypress, add link when it's enter
-        $('#linkinput').keypress(function (e) {
+        // listen keypress, add link when it's enter or on blur
+        $(document).on('keypress blur', '#linkinput', function (e) {
             // Enter is ascii code 13
-            if (e.which === 13) {
+            if (e.which === 13 || e.type === 'focusout') {
                 LinkC.create();
             }
-        });
-
-        // also add the link if the focus is lost because it looks like it's not obvious for people to use the enter key
-        $(document).on('blur', '#linkinput', function() {
-            LinkC.create();
         });
 
         // AUTOCOMPLETE
@@ -382,7 +373,7 @@
 
         // DISPLAY MARKDOWN EDITOR
         if ($('#body_area').hasClass('markdown-textarea')) {
-            $('.markdown-textarea').markdown({autofocus:false,savable:false, iconlibrary: 'fa'});
+            $('.markdown-textarea').markdown();
         }
 
         // INSERT IMAGE AT CURSOR POSITION IN TEXT
@@ -427,14 +418,15 @@
 
         // EDITOR
         tinymce.init({
-            mode : 'specific_textareas',
-            editor_selector : 'mceditable',
-            browser_spellcheck : true,
-            content_css : 'app/css/tinymce.css',
-            plugins : 'table textcolor searchreplace code fullscreen insertdatetime paste charmap lists advlist save image imagetools link pagebreak mention codesample',
+            mode: 'specific_textareas',
+            editor_selector: 'mceditable',
+            browser_spellcheck: true,
+            content_css: 'app/css/tinymce.css',
+            plugins: 'table textcolor searchreplace code fullscreen insertdatetime paste charmap lists advlist save image imagetools link pagebreak mention codesample',
             pagebreak_separator: '<pagebreak>',
             toolbar1: 'undo redo | bold italic underline | fontsizeselect | alignleft aligncenter alignright alignjustify | superscript subscript | bullist numlist outdent indent | forecolor backcolor | charmap | codesample | image link | save',
-            removed_menuitems : 'newdocument',
+            removed_menuitems: 'newdocument',
+            image_caption: true,
             codesample_languages: [
                 {text: 'Bash', value: 'bash'},
                 {text: 'C', value: 'c'},
@@ -459,7 +451,7 @@
                 quickSave(type, id);
             },
             // keyboard shortcut to insert today's date at cursor in editor
-            setup : function(editor) {
+            setup: function(editor) {
                 editor.addShortcut('ctrl+shift+d', 'add date at cursor', function() { addDateOnCursor(); });
                 editor.on('keydown', function(event) {
                     clearTimeout(typingTimer);
@@ -488,7 +480,7 @@
                     }
                 }
             },
-            language : $('#entityInfos').data('lang'),
+            language: $('#entityInfos').data('lang'),
             style_formats_merge: true,
             style_formats: [
                 {
@@ -509,6 +501,5 @@
                  }
             ]
         });
-
     });
 }());

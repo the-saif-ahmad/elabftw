@@ -109,7 +109,7 @@ class Tools
     {
         $whitelist = "<div><br><br /><p><sub><img><sup><strong><b><em><u><a><s><font><span><ul><li><ol>
             <blockquote><h1><h2><h3><h4><h5><h6><hr><table><tr><td><code><video><audio><pagebreak><pre>
-            <details><summary>";
+            <details><summary><figure><figcaption>";
         return strip_tags($input, $whitelist);
     }
 
@@ -133,8 +133,8 @@ class Tools
      */
     public static function getMaxUploadSize(): int
     {
-        $max_size = trim(ini_get('upload_max_filesize'));
-        $post_max_size = trim(ini_get('post_max_size'));
+        $max_size = trim((string) ini_get('upload_max_filesize'));
+        $post_max_size = trim((string) ini_get('post_max_size'));
 
         if (empty($max_size) || empty($post_max_size)) {
             return self::DEFAULT_UPLOAD_SIZE;
@@ -165,7 +165,7 @@ class Tools
                 return self::DEFAULT_UPLOAD_SIZE;
         }
 
-        return $value;
+        return (int) $value;
     }
 
     /**
@@ -339,18 +339,6 @@ class Tools
         $gray = "<i style='color:gray' class='fas fa-star' title='☺'></i>";
 
         return str_repeat($green, $rating) . str_repeat($gray, 5 - $rating);
-    }
-
-    /**
-     * This is used to include the title in the page name (see #324)
-     * It removes #, ' and " and appends "- eLabFTW"
-     *
-     * @param string $title
-     * @return string
-     */
-    public static function getCleanTitle(string $title): string
-    {
-        return str_replace(array('#', "&39;", "&34;"), '', $title) . " - eLabFTW";
     }
 
     /**

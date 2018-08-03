@@ -115,24 +115,20 @@
         // TAGS
         const TagC = new Tag();
 
-        // CREATE
-        $(document).on('keypress', '.createTagInput', function(e) {
-            if (e.which === 13) {
-                const id = $(this).data('id');
-                TagC.saveForTemplate(id);
+        // CREATE for templates
+        $(document).on('keypress blur', '.createTagInput', function(e) {
+            // Enter is ascii code 13
+            if (e.which === 13 || e.type === 'focusout') {
+                TagC.saveForTemplate($(this).data('id'));
             }
         });
 
-        // listen keypress, add tag when it's enter
-        $(document).on('keypress', '#createTagInput', function(e) {
+        // listen keypress, add tag when it's enter or focus out
+        $(document).on('keypress blur', '#createTagInput', function(e) {
             // Enter is ascii code 13
-            if (e.which === 13) {
+            if (e.which === 13 || e.type === 'focusout') {
                 TagC.save();
             }
-        });
-        // also add the tag if the focus is lost because it looks like it's not obvious for people to use the enter key
-        $(document).on('blur', '#createTagInput', function() {
-            TagC.save();
         });
 
         // AUTOCOMPLETE

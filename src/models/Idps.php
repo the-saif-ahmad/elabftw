@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Elabftw\Elabftw;
 
 use Exception;
+use PDO;
 
 /**
  * Store informations about different identity providers for auth with SAML
@@ -42,6 +43,7 @@ class Idps implements CrudInterface
      * @param string $sloUrl Single Log Out URL
      * @param string $sloBinding
      * @param string $x509 Public x509 Certificate
+     *
      * @return int last insert id
      */
     public function create(string $name, string $entityid, string $ssoUrl, string $ssoBinding, string $sloUrl, string $sloBinding, string $x509): int
@@ -72,10 +74,13 @@ class Idps implements CrudInterface
     {
         $sql = "SELECT * FROM idps WHERE id = :id";
         $req = $this->Db->prepare($sql);
-        $req->bindParam(':id', $id);
+        $req->bindParam(':id', $id, PDO::PARAM_INT);
         $req->execute();
-
-        return $req->fetch();
+        $res = $req->fetch();
+        if ($res === false) {
+            return array();
+        }
+        return $res;
     }
 
     /**
@@ -117,7 +122,7 @@ class Idps implements CrudInterface
             x509 = :x509
             WHERE id = :id";
         $req = $this->Db->prepare($sql);
-        $req->bindParam(':id', $id);
+        $req->bindParam(':id', $id, PDO::PARAM_INT);
         $req->bindParam(':name', $name);
         $req->bindParam(':entityid', $entityid);
         $req->bindParam(':sso_url', $ssoUrl);
@@ -139,7 +144,7 @@ class Idps implements CrudInterface
     {
         $sql = "DELETE FROM idps WHERE id = :id";
         $req = $this->Db->prepare($sql);
-        $req->bindParam(':id', $id);
+        $req->bindParam(':id', $id, PDO::PARAM_INT);
 
         return $req->execute();
     }

@@ -15,6 +15,7 @@ namespace Elabftw\Elabftw;
 use Exception;
 use PDO;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\Session;
 
 /**
  * Provide methods to login a user
@@ -27,8 +28,11 @@ class Auth
     /** @var Db $Db SQL Database */
     protected $Db;
 
-    /** @var Request $Request current request with Session */
+    /** @var Request $Request current request */
     private $Request;
+
+    /** @var Session $Session the current session */
+    private $Session;
 
     /** @var array $userData All the user data for a user */
     private $userData;
@@ -38,10 +42,11 @@ class Auth
      *
      * @param Request $request
      */
-    public function __construct(Request $request)
+    public function __construct(Request $request, Session $session)
     {
         $this->Db = Db::getConnection();
         $this->Request = $request;
+        $this->Session = $session;
     }
 
     /**
@@ -117,18 +122,18 @@ class Auth
      */
     private function populateSession(): bool
     {
-        $this->Request->getSession()->set('auth', 1);
-        $this->Request->getSession()->set('userid', $this->userData['userid']);
+        $this->Session->set('auth', 1);
+        $this->Session->set('userid', $this->userData['userid']);
 
         // load permissions
         $perm_sql = "SELECT * FROM groups WHERE group_id = :group_id LIMIT 1";
         $perm_req = $this->Db->prepare($perm_sql);
-        $perm_req->bindParam(':group_id', $this->userData['usergroup']);
+        $perm_req->bindParam(':group_id', $this->userData['usergroup'], PDO::PARAM_INT);
         $perm_req->execute();
         $group = $perm_req->fetch(PDO::FETCH_ASSOC);
 
-        $this->Request->getSession()->set('is_admin', $group['is_admin']);
-        $this->Request->getSession()->set('is_sysadmin', $group['is_sysadmin']);
+        $this->Session->set('is_admin', $group['is_admin']);
+        $this->Session->set('is_sysadmin', $group['is_sysadmin']);
         return true;
     }
 
@@ -141,17 +146,17 @@ class Auth
      */
     private function setToken(): bool
     {
-        $token = hash('sha256', \uniqid((string) \mt_rand(), true));
+        $token = \hash('sha256', \bin2hex(\random_bytes(16)));
 
         // create cookie
         // name, value, expire, path, domain, secure, httponly
-        setcookie('token', $token, time() + 2592000, '/', '', true, true);
+        \setcookie('token', $token, time() + 2592000, '/', '', true, true);
 
         // Update the token in SQL
         $sql = "UPDATE users SET token = :token WHERE userid = :userid";
         $req = $this->Db->prepare($sql);
         $req->bindParam(':token', $token);
-        $req->bindParam(':userid', $this->userData['userid']);
+        $req->bindParam(':userid', $this->userData['userid'], PDO::PARAM_INT);
 
         return $req->execute();
     }
@@ -220,11 +225,11 @@ class Auth
      */
     public function loginAsAnon(int $team): void
     {
-        $this->Request->getSession()->set('anon', 1);
-        $this->Request->getSession()->set('team', $team);
+        $this->Session->set('anon', 1);
+        $this->Session->set('team', $team);
 
-        $this->Request->getSession()->set('is_admin', 0);
-        $this->Request->getSession()->set('is_sysadmin', 0);
+        $this->Session->set('is_admin', 0);
+        $this->Session->set('is_sysadmin', 0);
     }
 
     /**
@@ -278,11 +283,11 @@ class Auth
      */
     public function tryAuth(): bool
     {
-        if ($this->Request->getSession()->has('anon')) {
+        if ($this->Session->has('anon')) {
             return true;
         }
         // if we are already logged in with the session, skip everything
-        if ($this->Request->getSession()->has('auth')) {
+        if ($this->Session->has('auth')) {
             return true;
         }
 

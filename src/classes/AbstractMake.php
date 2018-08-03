@@ -49,11 +49,11 @@ abstract class AbstractMake
     /**
      * Generate a long and unique string
      *
-     * @return string a sha512 hash of uniqid()
+     * @return string a random sha512 hash
      */
     protected function getUniqueString(): string
     {
-        return hash("sha512", \uniqid((string) \mt_rand(), true));
+        return \hash("sha512", \bin2hex(\random_bytes(16)));
     }
 
     /**
@@ -63,7 +63,7 @@ abstract class AbstractMake
      */
     protected function getUploadsPath(): string
     {
-        return dirname(__DIR__, 2) . '/uploads/';
+        return \dirname(__DIR__, 2) . '/uploads/';
     }
 
     /**
@@ -74,7 +74,7 @@ abstract class AbstractMake
      */
     protected function getTmpPath(): string
     {
-        $tmpPath = dirname(__DIR__, 2) . '/cache/elab/';
+        $tmpPath = \dirname(__DIR__, 2) . '/cache/elab/';
         if (!is_dir($tmpPath) && !mkdir($tmpPath) && !is_dir($tmpPath)) {
             throw new RuntimeException('Unable to create the cache directory (' . $tmpPath . ')');
         }
