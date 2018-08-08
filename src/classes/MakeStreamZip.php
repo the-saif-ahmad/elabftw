@@ -14,7 +14,6 @@ namespace Elabftw\Elabftw;
 
 use Exception;
 use PDO;
-use ZipStream\Option\Archive as ArchiveOptions;
 use ZipStream\ZipStream;
 
 /**
@@ -60,14 +59,9 @@ class MakeStreamZip extends AbstractMake
             throw new Exception('Fatal error! Missing extension: php-zip. Make sure it is installed and activated.');
         }
 
-        $opt = new ArchiveOptions();
-        //$opt->setZeroHeader(true);
-        $opt->setEnableZip64(false);
-        $this->Zip = new ZipStream('elabftw-export.zip', $opt);
+        $this->Zip = new ZipStream('elabftw-export.zip');
 
         $this->idList = $idList;
-
-        //$this->loopIdArr();
     }
 
     public function output()
@@ -144,7 +138,7 @@ class MakeStreamZip extends AbstractMake
             $i++;
             $realName = $file['real_name'];
             // if we have a file with the same name, it shouldn't overwrite the previous one
-            if (in_array($realName, $real_names_so_far)) {
+            if (in_array($realName, $real_names_so_far, true)) {
                 $realName = $i . '_' . $realName;
             }
             $real_names_so_far[] = $realName;
@@ -161,8 +155,8 @@ class MakeStreamZip extends AbstractMake
      */
     private function addPdf(): void
     {
-        $MakePdf = new MakePdf($this->Entity);
-        $MakePdf->output(true);
+        $MakePdf = new MakePdf($this->Entity, true);
+        $MakePdf->outputToFile();
         $this->Zip->addFileFromPath($this->folder . '/' . $MakePdf->getCleanName(), $MakePdf->filePath);
         $this->trash[] = $MakePdf->filePath;
     }

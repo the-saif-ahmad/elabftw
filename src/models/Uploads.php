@@ -191,7 +191,7 @@ class Uploads implements CrudInterface
         $folder = substr($hash, 0, 2);
         // create a subfolder if it doesn't exist
         $folderPath = $this->uploadsPath . $folder;
-        if (!is_dir($folderPath) && !mkdir($folderPath) && !is_dir($folderPath)) {
+        if (!is_dir($folderPath) && !mkdir($folderPath, 0700, true) && !is_dir($folderPath)) {
             throw new Exception('Cannot create folder! Check permissions of uploads folder.');
         }
         return $folder . '/' . $hash;
@@ -337,7 +337,7 @@ class Uploads implements CrudInterface
                                 'application/pdf',
                                 'application/postscript');
 
-            if (in_array($mime, $allowed_mime)) {
+            if (\in_array($mime, $allowed_mime, true)) {
                 // if pdf or postscript, generate thumbnail using the first page (index 0) do the same for postscript files
                 // sometimes eps images will be identified as application/postscript as well, but thumbnail generation still
                 // works in those cases
@@ -417,7 +417,7 @@ class Uploads implements CrudInterface
         }
         $fullPath = $this->uploadsPath . $upload['long_name'];
         // check user is same as the previously uploaded file
-        if ($upload['userid'] !== $this->Entity->Users->userid) {
+        if ((int) $upload['userid'] !== $this->Entity->Users->userid) {
             return false;
         }
         $this->moveFile($request->files->get('file')->getPathname(), $fullPath);
@@ -470,7 +470,7 @@ class Uploads implements CrudInterface
             $resultsArr[] = $this->destroy((int) $upload['id']);
         }
 
-        if (in_array(false, $resultsArr)) {
+        if (\in_array(false, $resultsArr, true)) {
             throw new Exception('Error deleting uploads.');
         }
 

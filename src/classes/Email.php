@@ -76,7 +76,7 @@ class Email
      *
      * @return Swift_Mailer
      */
-    public function getMailer(): Swift_Mailer
+    private function getMailer(): Swift_Mailer
     {
 
         // Choose mail transport method; either smtp or sendmail
@@ -110,6 +110,18 @@ class Email
     }
 
     /**
+     * Send an email
+     *
+     * @param Swift_Message $message
+     * @return int number of email sent
+     */
+    public function send(Swift_Message $message): int
+    {
+        $mailer = $this->getMailer();
+        return $mailer->send($message);
+    }
+
+    /**
      * Send a test email
      *
      * @param string $email
@@ -131,10 +143,8 @@ class Email
         ->setTo(array($email => 'Admin eLabFTW'))
         // Give it a body
         ->setBody(_('Congratulations, you correctly configured eLabFTW to send emails :)') . $footer);
-        // generate Swift_Mailer instance
-        $mailer = $this->getMailer();
 
-        return (bool) $mailer->send($message);
+        return (bool) $this->send($message);
     }
 
     /**
@@ -164,9 +174,8 @@ class Email
         ->setFrom(array($this->Config->configArr['mail_from'] => 'eLabFTW'))
         ->setTo($to)
         ->setBody($body . $footer);
-        $mailer = $this->getMailer();
 
-        return $mailer->send($message);
+        return $this->send($message);
     }
 
     /**
@@ -192,11 +201,9 @@ class Email
         ->setTo($this->getAdminEmail($team))
         // Give it a body
         ->setBody(_('Hi. A new user registered on elabftw. Head to the admin panel to validate the account.') . $footer);
-        // generate Swift_Mailer instance
-        $mailer = $this->getMailer();
         // SEND EMAIL
         try {
-            $mailer->send($message);
+            $this->send($message);
         } catch (Exception $e) {
             // FIXME should be injected
             $Log = new Logger('elabftw');
@@ -234,11 +241,9 @@ class Email
         ->setTo(array($email => 'eLabFTW'))
         // Give it a body
         ->setBody('Hello. Your account on eLabFTW was validated by an admin. Follow this link to login: ' . $url . $footer);
-        // generate Swift_Mailer instance
-        $mailer = $this->getMailer();
         // now we try to send the email
         try {
-            $mailer->send($message);
+            $this->send($message);
         } catch (Exception $e) {
             throw new Exception(_('There was a problem sending the email! Error was logged.'));
         }

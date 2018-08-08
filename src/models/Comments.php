@@ -21,21 +21,26 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class Comments implements CrudInterface
 {
+    /** @var AbstractEntity $Entity instance of Experiments or Database */
+    public $Entity;
+
     /** @var Db $Db SQL Database */
     protected $Db;
 
-    /** @var AbstractEntity $Entity instance of Experiments or Database */
-    public $Entity;
+    /** @var Email $Email instance of Email */
+    private $Email;
 
     /**
      * Constructor
      *
      * @param AbstractEntity $entity
+     * @param Email $email
      */
-    public function __construct(AbstractEntity $entity)
+    public function __construct(AbstractEntity $entity, Email $email)
     {
         $this->Db = Db::getConnection();
         $this->Entity = $entity;
+        $this->Email = $email;
     }
 
     /**
@@ -71,11 +76,12 @@ class Comments implements CrudInterface
      */
     private function alertOwner(): int
     {
-        if ($this->Entity instanceof Database) {
+        $Config = new Config();
+
+        // don't do it for Db items or if email is not configured
+        if ($this->Entity instanceof Database || $Config->configArr['mail_from'] === 'notconfigured@example.com') {
             return 0;
         }
-
-        $Config = new Config();
 
         // get the first and lastname of the commenter
         $sql = "SELECT CONCAT(firstname, ' ', lastname) AS fullname FROM users WHERE userid = :userid";
@@ -119,10 +125,8 @@ class Comments implements CrudInterface
             $commenter['fullname'],
             $url
         ) . $footer);
-        $Email = new Email(new Config());
-        $mailer = $Email->getMailer();
 
-        return $mailer->send($message);
+        return $this->Email->send($message);
     }
 
     /**

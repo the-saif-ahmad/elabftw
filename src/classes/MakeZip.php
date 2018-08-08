@@ -158,7 +158,7 @@ class MakeZip extends AbstractMake
             $i++;
             $realName = $file['real_name'];
             // if we have a file with the same name, it shouldn't overwrite the previous one
-            if (in_array($realName, $real_names_so_far)) {
+            if (in_array($realName, $real_names_so_far, true)) {
                 $realName = $i . '_' . $realName;
             }
             $real_names_so_far[] = $realName;
@@ -175,8 +175,8 @@ class MakeZip extends AbstractMake
      */
     private function addPdf(): void
     {
-        $MakePdf = new MakePdf($this->Entity);
-        $MakePdf->output(true);
+        $MakePdf = new MakePdf($this->Entity, true);
+        $MakePdf->outputToFile();
         $this->Zip->addFile($MakePdf->filePath, $this->folder . '/' . $MakePdf->getCleanName());
         $this->trash[] = $MakePdf->filePath;
     }

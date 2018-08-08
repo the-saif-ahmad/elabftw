@@ -51,12 +51,9 @@ class Users
         if ($userid !== null) {
             $this->setId($userid);
         }
-        if ($auth !== null) {
-            $this->Auth = $auth;
-        }
-        if ($config !== null) {
-            $this->Config = $config;
-        }
+
+        $this->Auth = $auth;
+        $this->Config = $config;
     }
 
     /**
@@ -437,7 +434,7 @@ class Users
         // ORDER BY
         $new_orderby = null;
         $whitelistOrderby = array(null, 'cat', 'date', 'title', 'comment');
-        if (isset($params['orderby']) && in_array($params['orderby'], $whitelistOrderby)) {
+        if (isset($params['orderby']) && \in_array($params['orderby'], $whitelistOrderby, true)) {
             $new_orderby = $params['orderby'];
         }
 
@@ -499,7 +496,7 @@ class Users
         // PDF format
         $new_pdf_format = 'A4';
         $formatsArr = array('A4', 'LETTER', 'ROYAL');
-        if (in_array($params['pdf_format'], $formatsArr)) {
+        if (\in_array($params['pdf_format'], $formatsArr, true)) {
             $new_pdf_format = $params['pdf_format'];
         }
 
@@ -542,7 +539,7 @@ class Users
 
         // STREAM ZIP
         // only use cookie here because it's temporary code
-        if ($params['stream_zip']) {
+        if (isset($params['stream_zip']) && $params['stream_zip'] === 'on') {
             \setcookie('stream_zip', '1', time() + 2592000, '/', '', true, true);
         } else {
             \setcookie('stream_zip', '0', time() - 3600, '/', '', true, true);
@@ -550,7 +547,7 @@ class Users
 
         // Signature pdf
         // only use cookie here because it's temporary code
-        if ($params['pdf_sig']) {
+        if (isset($params['pdf_sig']) && $params['pdf_sig'] === 'on') {
             \setcookie('pdf_sig', '1', time() + 2592000, '/', '', true, true);
         } else {
             \setcookie('pdf_sig', '0', time() - 3600, '/', '', true, true);
@@ -807,7 +804,7 @@ class Users
         $req->bindParam(':userid', $userToDelete['userid'], PDO::PARAM_INT);
         $result[] = $req->execute();
 
-        return !in_array(0, $result);
+        return !\in_array(false, $result, true);
     }
 
     /**

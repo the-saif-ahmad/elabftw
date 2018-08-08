@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Elabftw\Elabftw;
 
+use DateTime;
 use RuntimeException;
 use Mpdf\Mpdf;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,7 +22,7 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class MakePdf extends AbstractMake
 {
-    /** @var string $fileName a sha512 sum */
+    /** @var string $fileName a sha512 sum.pdf */
     public $fileName;
 
     /** @var string $filePath the full path of the file */
@@ -31,10 +32,20 @@ class MakePdf extends AbstractMake
      * Constructor
      *
      * @param AbstractEntity $entity Experiments or Database
+     * @param bool $temporary do we need to save it in cache folder or uploads folder
      */
-    public function __construct(AbstractEntity $entity)
+    public function __construct(AbstractEntity $entity, $temporary = false)
     {
         parent::__construct($entity);
+
+        $this->fileName = $this->getUniqueString() . '.pdf';
+
+        if ($temporary) {
+            $this->filePath = $this->getTmpPath() . $this->fileName;
+        } else {
+            $this->filePath = $this->getUploadsPath() . $this->fileName;
+        }
+
         // suppress the "A non-numeric value encountered" error from mpdf
         // see https://github.com/baselbers/mpdf/commit
         // 5cbaff4303604247f698afc6b13a51987a58f5bc#commitcomment-23217652
@@ -42,19 +53,37 @@ class MakePdf extends AbstractMake
     }
 
     /**
-     * Build content and output something
+     * Generate pdf and output it to a file
      *
-     * @param bool|null $toFile Do we want to write it to a file ?
-     * @param bool $timestamp Is it a timestamp pdf we are doing ? If yes save it in normal path, not tmp
      * @return void
      */
-    public function output($toFile = false, $timestamp = false): void
+    public function outputToFile(): void
+    {
+        $this->generate()->Output($this->filePath, 'F');
+    }
+
+    /**
+     * Generate pdf and output it to the browser
+     *
+     * @return void
+     */
+    public function outputToBrowser(): void
+    {
+        $this->generate()->Output($this->getCleanName(), 'I');
+    }
+
+    /**
+     * Build the pdf
+     *
+     * @return Mpdf
+     */
+    private function generate(): Mpdf
     {
         $format = $this->Entity->Users->userData['pdf_format'];
 
         // we use a custom tmp dir, not the same as Twig because its content gets deleted after pdf is generated
         $tmpDir = \dirname(__DIR__, 2) . '/cache/mpdf/';
-        if (!is_dir($tmpDir) && !mkdir($tmpDir) && !is_dir($tmpDir)) {
+        if (!is_dir($tmpDir) && !mkdir($tmpDir, 0700, true) && !is_dir($tmpDir)) {
             throw new RuntimeException("Could not create the $tmpDir directory! Please check permissions on this folder.");
         }
 
@@ -85,20 +114,7 @@ class MakePdf extends AbstractMake
             $mpdf->PDFA = true;
         }
 
-        // output
-        if ($toFile) {
-            $this->fileName = $this->getUniqueString() . '.pdf';
-
-            // output in tmp folder if it's not a timestamp pdf
-            if ($timestamp) {
-                $this->filePath = $this->getUploadsPath() . $this->fileName;
-            } else {
-                $this->filePath = $this->getTmpPath() . $this->fileName;
-            }
-            $mpdf->Output($this->filePath, 'F');
-        } else {
-            $mpdf->Output($this->getCleanName(), 'I');
-        }
+        return $mpdf;
     }
 
     /**
@@ -143,7 +159,7 @@ class MakePdf extends AbstractMake
     {
         $html = '';
         $linksArr = $this->Entity->Links->readAll();
-        if (\count($linksArr) === 0) {
+        if (empty($linksArr)) {
             return $html;
         }
 
@@ -278,7 +294,7 @@ class MakePdf extends AbstractMake
         $html = '';
 
         $stepsArr = $this->Entity->Steps->readAll();
-        if (\count($stepsArr) === 0) {
+        if (empty($stepsArr)) {
             return $html;
         }
 
@@ -347,8 +363,7 @@ class MakePdf extends AbstractMake
      */
     private function buildHeader(): string
     {
-        $date = \date_create($this->Entity->entityData['date'] ?? Tools::kdate());
-        $date_str = \date_format($date, 'Y-m-d');
+        $date = new DateTime($this->Entity->entityData['date'] ?? Tools::kdate());
 
         // add a CJK font for the body if we want CJK fonts
         $cjkStyle = "";
@@ -380,7 +395,7 @@ Witness' signature:<br><br>
     <div id="header">
         <h1>' . $this->Entity->entityData['title'] . '</h1>
         <p style="float:left; width:90%;">
-            <strong>Date:</strong> ' . $date_str . '<br />
+            <strong>Date:</strong> ' . $date->format('Y-m-d') . '<br />
             <strong>Tags:</strong> <em>' .
                 \str_replace('|', ' ', $this->Entity->entityData['tags']) . '</em> <br />
             <strong>Created by:</strong> ' . $this->Entity->entityData['fullname'] . '
